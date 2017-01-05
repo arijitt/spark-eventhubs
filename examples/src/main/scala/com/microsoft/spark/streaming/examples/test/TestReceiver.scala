@@ -35,8 +35,9 @@ object TestReceiver {
 
     for (receiverId <- 0 until totalReceiverNum) {
       for (partitionId <- 0 until 32) {
-        println(s"starting receiver $receiverId partition $partitionId")
         val startOffset: Long = receiverId * rate
+        println(s"starting receiver $receiverId partition $partitionId with the start offset" +
+          s" $startOffset")
         val receiver = EventHubsClientWrapper.getEventHubClient(
             Map(
               "eventhubs.namespace" -> namespace,
