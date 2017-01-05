@@ -56,7 +56,8 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
 
   private var initialized = false
 
-  private var consumedAllMessages = false
+  // have to set true to prevent the restful endpoint fail at the first batch
+  private var consumedAllMessages = true
 
   ProgressTracker.eventHubDirectDStreams += this
 
@@ -162,7 +163,7 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
     val description = offsetRanges.map { offsetRange =>
       s"eventhub: ${offsetRange.eventHubNameAndPartition}\t" +
         s"starting offsets: ${offsetRange.fromOffset}" +
-        s"sequenceNumbers: ${offsetRange.fromSeq} to ${offsetRange.untilSeq}"
+        s" sequenceNumbers: ${offsetRange.fromSeq} to ${offsetRange.untilSeq}"
     }.mkString("\n")
     // Copy offsetRanges to immutable.List to prevent from being modified by the user
     val metadata = Map(
@@ -283,30 +284,25 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
       initialized = true
     }
     require(progressTracker != null, "ProgressTracker hasn't been initialized")
-    val latestOffsetOfAllPartitions = fetchLatestOffset(validTime)
-    println(s"latestOffsetOfAllPartitions: $latestOffsetOfAllPartitions")
-    if (latestOffsetOfAllPartitions.isEmpty) {
-      currentOffsetsAndSeqNums = fetchStartOffsetForEachPartition(validTime)
-      consumedAllMessages = true
-      proceedWithNonEmptyRDD(validTime, currentOffsetsAndSeqNums, currentOffsetsAndSeqNums)
-    } else {
-      var startPointInNextBatch = fetchStartOffsetForEachPartition(validTime)
-      while (startPointInNextBatch.equals(currentOffsetsAndSeqNums) &&
-        !startPointInNextBatch.equals(latestOffsetOfAllPartitions) && !consumedAllMessages) {
-        logInfo(s"wait for ProgressTrackingListener to commit offsets at Batch" +
-          s" ${validTime.milliseconds}")
-        graph.wait()
-        logInfo(s"wake up at Batch ${validTime.milliseconds}")
-        startPointInNextBatch = fetchStartOffsetForEachPartition(validTime)
-      }
-      // keep this state to prevent dstream dying
-      if (startPointInNextBatch.equals(latestOffsetOfAllPartitions)) {
-        consumedAllMessages = true
-      } else {
-        consumedAllMessages = false
-      }
-      proceedWithNonEmptyRDD(validTime, startPointInNextBatch, latestOffsetOfAllPartitions)
+    var latestOffsetOfAllPartitions = fetchLatestOffset(validTime)
+    var startPointInNextBatch = fetchStartOffsetForEachPartition(validTime)
+    while (latestOffsetOfAllPartitions.isEmpty ||
+      (startPointInNextBatch.equals(currentOffsetsAndSeqNums) &&
+        !startPointInNextBatch.equals(latestOffsetOfAllPartitions) && !consumedAllMessages)) {
+      logInfo(s"wait for ProgressTrackingListener to commit offsets at Batch" +
+        s" ${validTime.milliseconds}")
+      graph.wait()
+      logInfo(s"wake up at Batch ${validTime.milliseconds}")
+      startPointInNextBatch = fetchStartOffsetForEachPartition(validTime)
+      latestOffsetOfAllPartitions = fetchLatestOffset(validTime)
     }
+    if (startPointInNextBatch.equals(latestOffsetOfAllPartitions) ||
+      latestOffsetOfAllPartitions.isEmpty) {
+      consumedAllMessages = true
+    } else {
+      consumedAllMessages = false
+    }
+    proceedWithNonEmptyRDD(validTime, startPointInNextBatch, latestOffsetOfAllPartitions)
   }
 
   @throws(classOf[IOException])
