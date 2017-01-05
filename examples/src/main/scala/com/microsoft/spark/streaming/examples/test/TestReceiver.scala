@@ -34,8 +34,8 @@ object TestReceiver {
     val policyKey = args(5)
 
     for (receiverId <- 0 until totalReceiverNum) {
-      val startOffset: Long = receiverId * rate
       for (partitionId <- 0 until 32) {
+        val startOffset: Long = receiverId * rate
         val receiver = EventHubsClientWrapper.getEventHubClient(
             Map(
               "eventhubs.namespace" -> namespace,
