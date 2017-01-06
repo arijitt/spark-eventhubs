@@ -67,15 +67,12 @@ object MultiStreamsJoin {
       eventhubParameters(name2, namespace2, policyName2, policykey2))
 
     val kv1 = inputDirectStream1.map(receivedRecord => (new String(receivedRecord.getBody), 1))
-      .reduceByKey(_ + _)
     val kv2 = inputDirectStream2.map(receivedRecord => (new String(receivedRecord.getBody), 1))
-      .reduceByKey(_ + _)
 
-    kv1.join(kv2).map {
-      case (k, (count1, count2)) =>
-        (k, count1 + count2)
-    }.print()
-
+    kv1.reduceByKeyAndWindow(_ + _, _ - _, Seconds(batchDuration * 3), Seconds(batchDuration)).
+      join(kv2.reduceByKeyAndWindow(_ + _, _ - _, Seconds(batchDuration * 3),
+        Seconds(batchDuration))).print()
+    
     ssc
   }
 
