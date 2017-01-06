@@ -68,17 +68,16 @@ object TestReceiver {
               }
               receivedBuffer ++= receiver.receiveSync(rate - receivedBuffer.length).asScala
             }
-            receivedBuffer.last.getSystemProperties.getOffset
           } catch {
             case e: Exception =>
               e.printStackTrace()
           } finally {
             receiver.closeSync()
             client.closeSync()
-            receivedBuffer.last.getSystemProperties.getOffset
           }
+          receivedBuffer.last.getSystemProperties.getOffset
         }
-      Future.sequence(futureList).onComplete {
+      Future.sequence(futureList.toList).onComplete {
         case Failure(e) =>
           e match {
             case ioe: IOException =>
@@ -88,8 +87,8 @@ object TestReceiver {
               println(s"finish $receiverId")
           }
         case Success(e) =>
-          offset = e.map(_.toString.toLong).toArray
-          println(s"finish ${receiverId} with offset ${offset.toList}")
+          offset = e.map(_.toLong).toArray
+          println(s"finish $receiverId with offset ${offset.toList}")
       }
       Thread.sleep(interval)
     }
