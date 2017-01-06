@@ -17,9 +17,12 @@
 
 package com.microsoft.spark.streaming.examples.test
 
+import java.io.IOException
+
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 import com.microsoft.azure.eventhubs.EventData
 
@@ -71,7 +74,15 @@ object TestReceiver {
           }
         }
       Future.sequence(futureList).onComplete {
-        case _ =>
+        case Failure(e) =>
+          e match {
+            case ioe: IOException =>
+              ioe.printStackTrace()
+              sys.exit(1)
+            case _ =>
+              println(s"finish $receiverId")
+          }
+        case Success(e) =>
           println(s"finish $receiverId")
       }
       Thread.sleep(interval)
