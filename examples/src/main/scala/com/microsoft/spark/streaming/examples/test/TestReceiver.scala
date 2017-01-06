@@ -42,7 +42,6 @@ object TestReceiver {
         val receiver = EventHubsClientWrapper.getEventHubClient(
             Map(
               "eventhubs.namespace" -> namespace,
-              "eventhubs.partition.count" -> "32",
               "eventhubs.name" -> name,
               "eventhubs.policyname" -> policyName,
               "eventhubs.policykey" -> policyKey,
