@@ -42,10 +42,12 @@ object TestReceiver {
 
     import scala.collection.JavaConverters._
 
+    var offset = new Array[Long](32)
+
     for (receiverId <- 0 until totalReceiverNum) {
       val futureList = for (partitionId <- 0 until 32) yield
         Future {
-          val startOffset: Long = receiverId * rate
+          val startOffset = offset(partitionId)
           println(s"starting receiver $receiverId partition $partitionId with the start offset" +
             s" $startOffset")
 
@@ -66,12 +68,14 @@ object TestReceiver {
               }
               receivedBuffer ++= receiver.receiveSync(rate - receivedBuffer.length).asScala
             }
+            receivedBuffer.last.getSystemProperties.getOffset
           } catch {
             case e: Exception =>
               e.printStackTrace()
           } finally {
             receiver.closeSync()
             client.closeSync()
+            receivedBuffer.last.getSystemProperties.getOffset
           }
         }
       Future.sequence(futureList).onComplete {
@@ -84,7 +88,7 @@ object TestReceiver {
               println(s"finish $receiverId")
           }
         case Success(e) =>
-          println(s"finish $receiverId")
+          offset = e.map(_.toString.toLong).toArray
       }
       Thread.sleep(interval)
     }
