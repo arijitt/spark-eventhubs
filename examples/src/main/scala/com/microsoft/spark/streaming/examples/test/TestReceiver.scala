@@ -49,10 +49,17 @@ object TestReceiver {
             partitionId,
             startOffset,
             rate)
-        // val receivedBuffer = new ListBuffer[EventData]
+        val receivedBuffer = new ListBuffer[EventData]
         var cnt = 0
         try {
-          receiver.receive()
+          while (receivedBuffer.length < rate) {
+            cnt += 1
+            if (cnt > rate * 2) {
+              throw new Exception(s"tried for $cnt times for receiver $receiverId partition" +
+                s" $partitionId")
+            }
+            receivedBuffer ++= receiver.receive(rate - receivedBuffer.length)
+          }
         } catch {
           case e: Exception =>
             e.printStackTrace()
