@@ -32,6 +32,7 @@ object TestReceiver {
     val name = args(3)
     val policyName = args(4)
     val policyKey = args(5)
+    val interval = args(6).toInt
 
     for (receiverId <- 0 until totalReceiverNum) {
       for (partitionId <- 0 until 32) {
@@ -63,6 +64,7 @@ object TestReceiver {
           receiver.close()
         }
       }
+      Thread.sleep(interval)
     }
   }
 }
