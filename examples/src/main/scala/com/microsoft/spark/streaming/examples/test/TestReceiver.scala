@@ -49,13 +49,10 @@ object TestReceiver {
             partitionId,
             startOffset,
             rate)
-        val receivedBuffer = new ListBuffer[EventData]
+        // val receivedBuffer = new ListBuffer[EventData]
         var cnt = 0
         try {
-          while (receivedBuffer.length < rate && cnt < rate) {
-            cnt += 1
-            receivedBuffer ++= receiver.receive(rate - receivedBuffer.length)
-          }
+          receiver.receive()
         } catch {
           case e: Exception =>
             e.printStackTrace()
