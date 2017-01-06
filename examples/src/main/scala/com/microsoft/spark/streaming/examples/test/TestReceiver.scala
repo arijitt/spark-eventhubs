@@ -24,7 +24,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-import com.microsoft.azure.eventhubs.EventData
+import com.microsoft.azure.eventhubs.{EventData, EventHubClient}
+import com.microsoft.azure.servicebus.ConnectionStringBuilder
 
 import org.apache.spark.streaming.eventhubs.EventHubsClientWrapper
 
@@ -39,22 +40,21 @@ object TestReceiver {
     val policyKey = args(5)
     val interval = args(6).toInt
 
+    import scala.collection.JavaConverters._
+
     for (receiverId <- 0 until totalReceiverNum) {
       val futureList = for (partitionId <- 0 until 32) yield
         Future {
           val startOffset: Long = receiverId * rate
           println(s"starting receiver $receiverId partition $partitionId with the start offset" +
             s" $startOffset")
-          val receiver = EventHubsClientWrapper.getEventHubClient(
-            Map(
-              "eventhubs.namespace" -> namespace,
-              "eventhubs.name" -> name,
-              "eventhubs.policyname" -> policyName,
-              "eventhubs.policykey" -> policyKey,
-              "eventhubs.consumergroup" -> "$Default"),
-            partitionId,
-            startOffset,
-            rate)
+
+          val connectionString = new ConnectionStringBuilder(namespace, name, policyName,
+            policyKey)
+          val client = EventHubClient.createFromConnectionString(connectionString.toString).get()
+          val receiver = client.createReceiver("$Default", partitionId.toString,
+            startOffset.toString).get()
+
           val receivedBuffer = new ListBuffer[EventData]
           var cnt = 0
           try {
@@ -64,7 +64,7 @@ object TestReceiver {
                 throw new Exception(s"tried for $cnt times for receiver $receiverId partition" +
                   s" $partitionId")
               }
-              receivedBuffer ++= receiver.receive(rate - receivedBuffer.length)
+              receivedBuffer ++= receiver.receiveSync(rate - receivedBuffer.length).asScala
             }
           } catch {
             case e: Exception =>
