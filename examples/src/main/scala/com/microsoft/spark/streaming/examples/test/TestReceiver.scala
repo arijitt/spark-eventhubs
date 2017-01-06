@@ -89,6 +89,7 @@ object TestReceiver {
           }
         case Success(e) =>
           offset = e.map(_.toString.toLong).toArray
+          println(s"finish ${receiverId} with offset ${offset.toList}")
       }
       Thread.sleep(interval)
     }
