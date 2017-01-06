@@ -71,6 +71,7 @@ object TestReceiver {
               e.printStackTrace()
           } finally {
             receiver.close()
+            client.closeSync()
           }
         }
       Future.sequence(futureList).onComplete {
