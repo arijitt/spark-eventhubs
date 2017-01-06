@@ -18,6 +18,8 @@
 package com.microsoft.spark.streaming.examples.test
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 import com.microsoft.azure.eventhubs.EventData
 
@@ -35,11 +37,12 @@ object TestReceiver {
     val interval = args(6).toInt
 
     for (receiverId <- 0 until totalReceiverNum) {
-      for (partitionId <- 0 until 32) {
-        val startOffset: Long = receiverId * rate
-        println(s"starting receiver $receiverId partition $partitionId with the start offset" +
-          s" $startOffset")
-        val receiver = EventHubsClientWrapper.getEventHubClient(
+      val futureList = for (partitionId <- 0 until 32) yield
+        Future {
+          val startOffset: Long = receiverId * rate
+          println(s"starting receiver $receiverId partition $partitionId with the start offset" +
+            s" $startOffset")
+          val receiver = EventHubsClientWrapper.getEventHubClient(
             Map(
               "eventhubs.namespace" -> namespace,
               "eventhubs.name" -> name,
@@ -49,23 +52,27 @@ object TestReceiver {
             partitionId,
             startOffset,
             rate)
-        val receivedBuffer = new ListBuffer[EventData]
-        var cnt = 0
-        try {
-          while (receivedBuffer.length < rate) {
-            cnt += 1
-            if (cnt > rate * 2) {
-              throw new Exception(s"tried for $cnt times for receiver $receiverId partition" +
-                s" $partitionId")
+          val receivedBuffer = new ListBuffer[EventData]
+          var cnt = 0
+          try {
+            while (receivedBuffer.length < rate) {
+              cnt += 1
+              if (cnt > rate * 2) {
+                throw new Exception(s"tried for $cnt times for receiver $receiverId partition" +
+                  s" $partitionId")
+              }
+              receivedBuffer ++= receiver.receive(rate - receivedBuffer.length)
             }
-            receivedBuffer ++= receiver.receive(rate - receivedBuffer.length)
+          } catch {
+            case e: Exception =>
+              e.printStackTrace()
+          } finally {
+            receiver.close()
           }
-        } catch {
-          case e: Exception =>
-            e.printStackTrace()
-        } finally {
-          receiver.close()
         }
+      Future.sequence(futureList).onComplete {
+        case _ =>
+          println(s"finish $receiverId")
       }
       Thread.sleep(interval)
     }
