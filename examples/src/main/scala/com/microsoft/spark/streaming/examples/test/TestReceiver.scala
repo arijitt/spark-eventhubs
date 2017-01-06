@@ -70,7 +70,7 @@ object TestReceiver {
             case e: Exception =>
               e.printStackTrace()
           } finally {
-            receiver.close()
+            receiver.closeSync()
             client.closeSync()
           }
         }
