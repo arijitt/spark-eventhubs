@@ -17,11 +17,13 @@
 package org.apache.spark.streaming.eventhubs
 
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.JavaConverters._
 import scala.collection.Map
 
 import com.microsoft.azure.eventhubs._
+import com.microsoft.azure.eventhubs.{EventHubClient => AzureEventHubClient}
 import com.microsoft.azure.servicebus._
 
 import org.apache.spark.streaming.eventhubs.EventhubsOffsetTypes._
@@ -128,23 +130,23 @@ class EventHubsClientWrapper extends Serializable with EventHubClient {
                              receiverEpoch: Long): Unit = {
 
     // Create Eventhubs client
-    val eventhubsClient = EventHubClient.createFromConnectionStringSync(connectionString)
+    val azureEventhubClient = EventHubsClientWrapper.getOrCreateEventHubClient(connectionString)
 
     eventhubsReceiver = offsetType match {
       case EventhubsOffsetTypes.None | EventhubsOffsetTypes.PreviousCheckpoint
            | EventhubsOffsetTypes.InputByteOffset =>
         if (receiverEpoch > DEFAULT_RECEIVER_EPOCH) {
-          eventhubsClient.createEpochReceiverSync(consumerGroup, partitionId, currentOffset,
+          azureEventhubClient.createEpochReceiverSync(consumerGroup, partitionId, currentOffset,
             receiverEpoch)
         } else {
-          eventhubsClient.createReceiverSync(consumerGroup, partitionId, currentOffset)
+          azureEventhubClient.createReceiverSync(consumerGroup, partitionId, currentOffset)
         }
       case EventhubsOffsetTypes.InputTimeOffset =>
         if (receiverEpoch > DEFAULT_RECEIVER_EPOCH) {
-          eventhubsClient.createEpochReceiverSync(consumerGroup, partitionId,
+          azureEventhubClient.createEpochReceiverSync(consumerGroup, partitionId,
             Instant.ofEpochSecond(currentOffset.toLong), receiverEpoch)
         } else {
-          eventhubsClient.createReceiverSync(consumerGroup, partitionId,
+          azureEventhubClient.createReceiverSync(consumerGroup, partitionId,
             Instant.ofEpochSecond(currentOffset.toLong))
         }
     }
@@ -177,6 +179,16 @@ class EventHubsClientWrapper extends Serializable with EventHubClient {
 }
 
 object EventHubsClientWrapper {
+
+  val clients = new ConcurrentHashMap[String, AzureEventHubClient]()
+
+  def getOrCreateEventHubClient(connectionString: String): AzureEventHubClient = this.synchronized {
+    if (!clients.containsKey(connectionString)) {
+      clients.put(connectionString, AzureEventHubClient.
+        createFromConnectionStringSync(connectionString))
+    }
+    clients.get(connectionString)
+  }
 
   def getEventHubClient(
       eventhubsParams: Map[String, String],
