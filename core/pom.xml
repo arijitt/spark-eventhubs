@@ -28,6 +28,15 @@
   </parent>
   <artifactId>spark-streaming-eventhubs_2.11</artifactId>
   <packaging>jar</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>com.microsoft.azure</groupId>
+      <artifactId>azure-eventhubs</artifactId>
+      <version>0.10.0-RC</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/../azure-eventhubs-0.10.0-SNAPSHOT.jar</systemPath>
+    </dependency>
+  </dependencies>
   <build>
     <plugins>
       <plugin>
