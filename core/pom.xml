@@ -33,7 +33,7 @@
       <groupId>com.microsoft.azure</groupId>
       <artifactId>azure-eventhubs</artifactId>
       <version>0.10.0-RC</version>
-      <scope>provided</scope>
+      <scope>system</scope>
       <systemPath>${project.basedir}/../azure-eventhubs-0.10.0-SNAPSHOT.jar</systemPath>
     </dependency>
   </dependencies>
