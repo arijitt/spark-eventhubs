@@ -259,8 +259,9 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
     super.clearCheckpointData(time)
     EventHubDirectDStream.cleanupLock.synchronized {
       if (EventHubDirectDStream.lastCleanupTime < time.milliseconds) {
-        logInfo(s"clean up progress file which is earlier than ${time.milliseconds}")
-        progressTracker.cleanProgressFile(time.milliseconds)
+        val clearTimeThreshold = time.milliseconds - rememberDuration.milliseconds
+        logInfo(s"clean up progress file which is earlier than $clearTimeThreshold")
+        progressTracker.cleanProgressFile(clearTimeThreshold)
         EventHubDirectDStream.lastCleanupTime = time.milliseconds
       }
     }
