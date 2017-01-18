@@ -261,6 +261,7 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
     Some(eventHubRDD)
   }
 
+  /*
   override private[streaming] def clearCheckpointData(time: Time): Unit = {
     super.clearCheckpointData(time)
     EventHubDirectDStream.cleanupLock.synchronized {
@@ -271,6 +272,7 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
       }
     }
   }
+  */
 
   override def compute(validTime: Time): Option[RDD[EventData]] = {
     if (!initialized) {
@@ -331,13 +333,12 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
 
     def batchForTime: mutable.HashMap[Time,
       Array[(EventHubNameAndPartition, Long, Long, Long)]] = {
-      data.asInstanceOf[mutable.HashMap[Time,
-        Array[(EventHubNameAndPartition, Long, Long, Long)]]]
+      data.asInstanceOf[mutable.HashMap[Time, Array[(EventHubNameAndPartition, Long, Long, Long)]]]
     }
 
     override def update(time: Time): Unit = {
       batchForTime.clear()
-      generatedRDDs.filter(_._2.isInstanceOf[EventHubRDD]).foreach { kv =>
+      generatedRDDs.foreach { kv =>
         val offsetRangeOfRDD = kv._2.asInstanceOf[EventHubRDD].offsetRanges.map(_.toTuple).toArray
         batchForTime += kv._1 -> offsetRangeOfRDD
       }
