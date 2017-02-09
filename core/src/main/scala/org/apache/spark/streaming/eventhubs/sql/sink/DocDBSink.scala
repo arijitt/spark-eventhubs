@@ -39,7 +39,7 @@ class DocDBSink(databaseId: String, collectionId: String) extends Sink {
     // convert every row to json
 
     // write to DocumentDB atomically
-    data.write.
+    // data.write.
   }
 
 }
