@@ -56,7 +56,7 @@ class DocDBSink(endPoint: String, masterKey: String,
       client.deleteStoredProcedure(procedure.getSelfLink, null)
     }
     val newProcedure = new StoredProcedure()
-    newProcedure.setId("spark.streaming.DocDBSinkBulkImport")
+    newProcedure.setId(storedProcedureId)
     newProcedure.setBody(loadStoredProcedure())
     val sProc = client.createStoredProcedure(
       collectionLink, newProcedure, null).getResource
