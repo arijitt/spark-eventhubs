@@ -46,19 +46,19 @@ class DocDBSink(endPoint: String, masterKey: String,
     val client = new DocumentClient(endPoint, masterKey, ConnectionPolicy.GetDefault(),
       ConsistencyLevel.BoundedStaleness)
     // init procedure
-    val remoteProcedures = documentClient.queryStoredProcedures(
+    val remoteProcedures = client.queryStoredProcedures(
       collectionLink,
       new SqlQuerySpec("SELECT * FROM root r WHERE r.id=@id",
         new SqlParameterCollection(new SqlParameter(
           "@id", storedProcedureId))), null).getQueryIterable.toList
     if (remoteProcedures.size() > 0) {
       val procedure = remoteProcedures.get(0)
-      documentClient.deleteStoredProcedure(procedure.getSelfLink, null)
+      client.deleteStoredProcedure(procedure.getSelfLink, null)
     }
     val newProcedure = new StoredProcedure()
     newProcedure.setId("spark.streaming.DocDBSinkBulkImport")
     newProcedure.setBody(loadStoredProcedure())
-    val sProc = documentClient.createStoredProcedure(
+    val sProc = client.createStoredProcedure(
       collectionLink, newProcedure, null).getResource
     (client, sProc)
   }
