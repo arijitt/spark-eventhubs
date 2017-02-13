@@ -17,24 +17,59 @@
 
 package org.apache.spark.streaming.eventhubs.sql.sink
 
-import com.microsoft.azure.documentdb.{ConnectionPolicy, ConsistencyLevel, Document, DocumentClient}
+import java.util.ServiceLoader
 
+import scala.io.Source
+
+import com.microsoft.azure.documentdb._
+
+import org.apache.spark.sql.execution.datasources.DataSource
 import org.apache.spark.sql.execution.streaming.Sink
+import org.apache.spark.sql.sources.DataSourceRegister
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions._
+import org.apache.spark.util.Utils
 
+class DocDBSink(endPoint: String, masterKey: String,
+                databaseId: String, collectionId: String, storedProcedureId: String) extends Sink {
 
-class DocDBSink(databaseId: String, collectionId: String) extends Sink {
+  private val collectionLink = "dbs/" + databaseId  + "/colls/" + collectionId
 
-  val client = new DocumentClient(
-    "<your endpoint URI>",
-    "<your key>"
-    , new ConnectionPolicy(),
-    ConsistencyLevel.Session)
+  private val (documentClient: DocumentClient, storedProcedure: StoredProcedure) = initEntities()
 
-  val doc = new Document()
+  private def loadStoredProcedure(): String = {
+    val stream = getClass.getResourceAsStream("/bulkimport.js")
+    Source.fromInputStream(stream).getLines().foldLeft("")((str, line) => str + line + "\n")
+  }
+
+  private def initEntities(): (DocumentClient, StoredProcedure) = {
+    // init client
+    val client = new DocumentClient(endPoint, masterKey, ConnectionPolicy.GetDefault(),
+      ConsistencyLevel.BoundedStaleness)
+    // init procedure
+    val remoteProcedures = documentClient.queryStoredProcedures(
+      collectionLink,
+      new SqlQuerySpec("SELECT * FROM root r WHERE r.id=@id",
+        new SqlParameterCollection(new SqlParameter(
+          "@id", storedProcedureId))), null).getQueryIterable.toList
+    if (remoteProcedures.size() > 0) {
+      val procedure = remoteProcedures.get(0)
+      documentClient.deleteStoredProcedure(procedure.getSelfLink, null)
+    }
+    val newProcedure = new StoredProcedure()
+    newProcedure.setId("spark.streaming.DocDBSinkBulkImport")
+    newProcedure.setBody(loadStoredProcedure())
+    val sProc = documentClient.createStoredProcedure(
+      collectionLink, newProcedure, null).getResource
+    (client, sProc)
+  }
+
+  initEntities()
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
+    import scala.collection.JavaConverters._
+    println(ServiceLoader.load(classOf[DataSourceRegister], Utils.getContextOrSparkClassLoader).
+      asScala.toList)
+    println(data.collect().toList)
     // step 1: translate DF to json
     // convert every row to json
 

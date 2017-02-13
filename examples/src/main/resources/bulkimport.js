@@ -26,6 +26,7 @@ function bulkImport(docs, upsert) {
     // In this case all documents were created and we don’t need to call
     // tryCreate anymore. Just call setBody and we are done.
     function tryCreate(doc, callback) {
+
         var isAccepted = collection.createDocument(collectionLink, doc, { disableAutomaticIdGeneration : true}, callback);
 
         // If the request was accepted, callback will be called.
