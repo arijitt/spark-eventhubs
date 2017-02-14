@@ -26,10 +26,11 @@ class DocDBSinkProvider extends StreamSinkProvider with DataSourceRegister {
 
   private def initParameters(parameters: Map[String, String]) = {
     require(parameters.contains("docDB.endpoint") && parameters.contains("docDB.masterKey") &&
-      parameters.contains("docDB.databaseId") && parameters.contains("docDB.collectionId"))
+      parameters.contains("docDB.databaseId") && parameters.contains("docDB.collectionId") &&
+    parameters.contains("docDB.keyColumn") && parameters.contains("docDB.procedureId"))
     (parameters("docDB.endPoint"), parameters("docDB.masterKey"),
       parameters("docDB.databaseId"), parameters("docDB.collectionId"),
-      parameters("docDB.procedureId"))
+      parameters("docDB.procedureId"), parameters("docDB.keyColumn"))
   }
 
   def shortName(): String = "docDB"
@@ -40,8 +41,8 @@ class DocDBSinkProvider extends StreamSinkProvider with DataSourceRegister {
     partitionColumns: Seq[String],
     outputMode: OutputMode): Sink = {
 
-    val (endPoint, masterKey, databaseId, collectionId, storedProcedureId) =
+    val (endPoint, masterKey, databaseId, collectionId, storedProcedureId, keyColumn) =
       initParameters(parameters)
-    new DocDBSink(endPoint, masterKey, databaseId, collectionId, storedProcedureId)
+    new DocDBSink(endPoint, masterKey, databaseId, collectionId, storedProcedureId, keyColumn)
   }
 }

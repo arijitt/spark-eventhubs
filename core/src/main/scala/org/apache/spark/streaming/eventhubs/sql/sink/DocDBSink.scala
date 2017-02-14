@@ -23,17 +23,20 @@ import scala.io.Source
 
 import com.microsoft.azure.documentdb._
 
-import org.apache.spark.sql.execution.datasources.DataSource
-import org.apache.spark.sql.execution.streaming.Sink
-import org.apache.spark.sql.sources.DataSourceRegister
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.execution.streaming.{ForeachSink, Sink}
+import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.util.Utils
 
-class DocDBSink(endPoint: String, masterKey: String,
-                databaseId: String, collectionId: String, storedProcedureId: String) extends Sink {
+class DocDBSink(
+    endPoint: String,
+    masterKey: String,
+    databaseId: String,
+    collectionId: String,
+    storedProcedureId: String,
+    keyColumn: String) extends Sink {
 
   private val collectionLink = "dbs/" + databaseId  + "/colls/" + collectionId
-
   private val (documentClient: DocumentClient, storedProcedure: StoredProcedure) = initEntities()
 
   private def loadStoredProcedure(): String = {
@@ -66,15 +69,13 @@ class DocDBSink(endPoint: String, masterKey: String,
   initEntities()
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
-    import scala.collection.JavaConverters._
-    println(ServiceLoader.load(classOf[DataSourceRegister], Utils.getContextOrSparkClassLoader).
-      asScala.toList)
-    println(data.collect().toList)
-    // step 1: translate DF to json
-    // convert every row to json
-
-    // write to DocumentDB atomically
-    // data.write.
+    val docCol = data.toJSON.toDF("jsonDoc").col("jsonDoc")
+    data.select(keyColumn).withColumn("docCol", docCol).map(row =>
+      {
+        val doc = new Document(row.getAs[String]("jsonDoc"))
+        doc.setId(row.getAs[String](keyColumn))
+        doc
+      }).foreach(doc => documentClient.replaceDocument(doc, null))
   }
 
 }

@@ -56,6 +56,7 @@ object DocumentDBFeeder {
       .option("docDB.databaseId", args(2))
       .option("docDB.collectionId", args(3))
       .option("docDB.procedureId", args(4))
+      .option("docDB.keyColumn", args(5))
       .start()
 
     query.awaitTermination()
