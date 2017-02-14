@@ -68,7 +68,9 @@ class DocDBSink(
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
     val sparkSession = SparkSession.builder().getOrCreate()
     import sparkSession.implicits._
-    val docCol = data.toJSON.toDF("jsonDoc").col("jsonDoc")
+    val jsonDF = data.toJSON
+    jsonDF.show()
+    val docCol = jsonDF.toDF("jsonDoc").col("jsonDoc")
     data.select(keyColumn).withColumn("docCol", docCol).foreach(row =>
       {
         val doc = new Document(row.getAs[String]("jsonDoc"))
