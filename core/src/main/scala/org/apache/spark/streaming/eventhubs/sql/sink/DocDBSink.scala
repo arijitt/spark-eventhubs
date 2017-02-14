@@ -22,11 +22,8 @@ import java.util.ServiceLoader
 import scala.io.Source
 
 import com.microsoft.azure.documentdb._
-
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.execution.streaming.{ForeachSink, Sink}
-import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
-import org.apache.spark.util.Utils
 
 class DocDBSink(
     endPoint: String,
@@ -69,13 +66,15 @@ class DocDBSink(
   initEntities()
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = {
-    val docCol = data.toJSON.toDF("jsonDoc").col("jsonDoc")
-    data.select(keyColumn).withColumn("docCol", docCol).map(row =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val docCol = data.toJSON.toDF("jsoDoc").col("jsonDoc")
+    data.select(keyColumn).withColumn("docCol", docCol).foreach(row =>
       {
         val doc = new Document(row.getAs[String]("jsonDoc"))
         doc.setId(row.getAs[String](keyColumn))
-        doc
-      }).foreach(doc => documentClient.replaceDocument(doc, null))
+        documentClient.replaceDocument(doc, null)
+      })
   }
 
 }
