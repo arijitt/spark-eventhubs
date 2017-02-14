@@ -48,7 +48,8 @@ object DocumentDBFeeder {
     // Start running the query that prints the running counts to the console
     val query = wordCounts.writeStream
       .trigger(ProcessingTime("10 seconds"))
-      .option("checkpointLocation", s"hdfs://mycluster/${spark.sparkContext.appName}")
+      .option("checkpointLocation", s"hdfs://mycluster/${spark.sparkContext.appName}-" +
+        s"${System.currentTimeMillis()}")
       .outputMode("complete")
       .format("docDB")
       .option("docDB.endpoint", args(0))
