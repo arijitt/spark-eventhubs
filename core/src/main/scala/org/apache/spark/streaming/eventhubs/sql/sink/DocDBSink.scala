@@ -70,10 +70,10 @@ class DocDBSink(
     import sparkSession.implicits._
     val jsonDF = data.toJSON
     jsonDF.show()
-    val docCol = jsonDF.toDF("jsonDoc").col("jsonDoc")
+    val docCol = jsonDF.toDF("docCol").col("docCol")
     data.select(keyColumn).withColumn("docCol", docCol).foreach(row =>
       {
-        val doc = new Document(row.getAs[String]("jsonDoc"))
+        val doc = new Document(row.getAs[String]("docCol"))
         doc.setId(row.getAs[String](keyColumn))
         documentClient.replaceDocument(doc, null)
       })
