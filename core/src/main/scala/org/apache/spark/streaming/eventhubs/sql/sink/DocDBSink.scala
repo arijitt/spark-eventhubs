@@ -17,13 +17,13 @@
 
 package org.apache.spark.streaming.eventhubs.sql.sink
 
-import java.util.ServiceLoader
-
 import scala.io.Source
 
 import com.microsoft.azure.documentdb._
+
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.execution.streaming.{ForeachSink, Sink}
+
 
 class DocDBSink(
     endPoint: String,
@@ -31,10 +31,9 @@ class DocDBSink(
     databaseId: String,
     collectionId: String,
     storedProcedureId: String,
-    keyColumn: String) extends Sink {
+    keyColumn: String) extends Sink with Serializable {
 
   private val collectionLink = "dbs/" + databaseId  + "/colls/" + collectionId
-  private val (documentClient: DocumentClient, storedProcedure: StoredProcedure) = initEntities()
 
   private def loadStoredProcedure(): String = {
     val stream = getClass.getResourceAsStream("/bulkimport.js")
@@ -74,6 +73,7 @@ class DocDBSink(
     data.select(keyColumn).rdd.zip(docCol).map { case (r1, r2) =>
       Row(r1.getAs[String](keyColumn), r2.getAs[String]("docCol"))
     }.foreach(row => {
+      val (documentClient: DocumentClient, _: StoredProcedure) = initEntities()
       val doc = new Document(row.getAs[String]("docCol"))
       doc.setId(row.getAs[String](keyColumn))
       documentClient.replaceDocument(doc, null)
