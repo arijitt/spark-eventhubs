@@ -68,7 +68,6 @@ class DocDBSink(
     val sparkSession = SparkSession.builder().getOrCreate()
     import sparkSession.implicits._
     val jsonDF = data.toJSON
-    jsonDF.show()
     val docCol = jsonDF.toDF("docCol").rdd
     data.select(keyColumn).rdd.zip(docCol).map { case (r1, r2) =>
       Row(r1.getAs[String](keyColumn), r2.getAs[String]("docCol"))
