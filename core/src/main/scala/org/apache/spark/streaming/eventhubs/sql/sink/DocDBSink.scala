@@ -70,13 +70,14 @@ class DocDBSink(
     import sparkSession.implicits._
     val jsonDF = data.toJSON
     jsonDF.show()
-    val docCol = jsonDF.toDF("docCol").col("docCol")
-    data.select(keyColumn).withColumn("docCol", docCol).foreach(row =>
-      {
-        val doc = new Document(row.getAs[String]("docCol"))
-        doc.setId(row.getAs[String](keyColumn))
-        documentClient.replaceDocument(doc, null)
-      })
+    val docCol = jsonDF.toDF("docCol").rdd
+    data.select(keyColumn).rdd.zip(docCol).map { case (r1, r2) =>
+      Row(r1.getAs[String](keyColumn), r2.getAs[String]("docCol"))
+    }.foreach(row => {
+      val doc = new Document(row.getAs[String]("docCol"))
+      doc.setId(row.getAs[String](keyColumn))
+      documentClient.replaceDocument(doc, null)
+    })
   }
 
 }
