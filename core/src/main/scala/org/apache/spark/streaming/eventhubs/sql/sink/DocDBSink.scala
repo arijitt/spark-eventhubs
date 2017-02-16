@@ -71,11 +71,13 @@ class DocDBSink(
     val docCol = jsonDF.toDF("docCol").rdd
     data.select(keyColumn).rdd.zip(docCol).map { case (r1, r2) =>
       Row(r1.getAs[String](keyColumn), r2.getAs[String]("docCol"))
-    }.foreach(row => {
+    }.foreachPartition(rows => {
       val (documentClient: DocumentClient, _: StoredProcedure) = initEntities()
-      val doc = new Document(row.getAs[String]("docCol"))
-      doc.setId(row.getAs[String](keyColumn))
-      documentClient.replaceDocument(doc, null)
+      for (row <- rows) {
+        val doc = new Document(row.getAs[String]("docCol"))
+        doc.setId(row.getAs[String](keyColumn))
+        documentClient.replaceDocument(doc, null)
+      }
     })
   }
 
