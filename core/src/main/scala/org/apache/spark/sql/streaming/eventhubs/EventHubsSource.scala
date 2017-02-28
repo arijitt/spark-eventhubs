@@ -64,7 +64,7 @@ private[spark] class EventHubsSource(
   // initialize ProgressTracker
   val progressTracker = ProgressTrackerBase.initInstance(
     parameters("eventhubs.progressTrackingDir"), sqlContext.sparkContext.appName,
-    sqlContext.sparkContext.hadoopConfiguration, "structuredStreaming")
+    sqlContext.sparkContext.hadoopConfiguration, "structuredstreaming")
 
   private[eventhubs] def setEventHubClient(eventHubClient: EventHubClient): EventHubsSource = {
     _eventHubClient = eventHubClient

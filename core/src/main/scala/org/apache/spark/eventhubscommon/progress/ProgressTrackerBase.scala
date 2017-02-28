@@ -17,7 +17,7 @@
 
 package org.apache.spark.eventhubscommon.progress
 
-import java.io.{BufferedReader, InputStreamReader, IOException}
+import java.io.{BufferedReader, IOException, InputStreamReader}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -28,6 +28,7 @@ import org.apache.hadoop.fs._
 
 import org.apache.spark.eventhubscommon.{EventHubNameAndPartition, EventHubsConnector, OffsetRecord}
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.streaming.eventhubs.checkpoint.StructuredStreamingProgressTracker
 import org.apache.spark.streaming.Time
 import org.apache.spark.streaming.eventhubs.checkpoint.DirectDStreamProgressTracker
 
@@ -364,6 +365,9 @@ private[spark] object ProgressTrackerBase {
             _progressTracker = new DirectDStreamProgressTracker(progressDirStr,
               appName,
               hadoopConfiguration)
+          case "structuredstreaming" =>
+            _progressTracker = new StructuredStreamingProgressTracker(progressDirStr,
+              appName, hadoopConfiguration)
         }
         _progressTracker.init()
       }
