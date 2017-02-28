@@ -121,7 +121,7 @@ private[spark] class EventHubsSource(
     val highestOffsetsOpt = composeHighestOffset(failAppIfRestEndpointFail)
     require(highestOffsetsOpt.isDefined, "cannot get highest offset from rest endpoint of" +
       " eventhubs")
-    updateCurrentOffsetsAndSeqNumsAndCommit()
+    updateCurrentOffsetsAndSeqNumsAndCommit(currentOffsetsAndSeqNums.batchId)
     val targetOffsets = RateControlUtils.clamp(currentOffsetsAndSeqNums.offsets,
       highestOffsetsOpt.get, parameters)
     Some(EventHubsBatchRecord(currentOffsetsAndSeqNums.batchId + 1,
@@ -130,11 +130,9 @@ private[spark] class EventHubsSource(
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
   }
 
-  private def updateCurrentOffsetsAndSeqNumsAndCommit(): Unit = {
-    currentOffsetsAndSeqNums = fetchStartingOffsetOfCurrentBatch(
-      math.max(currentOffsetsAndSeqNums.batchId, 0))
-    progressTracker.commit(Map(uid -> currentOffsetsAndSeqNums.offsets),
-      currentOffsetsAndSeqNums.batchId)
+  private def updateCurrentOffsetsAndSeqNumsAndCommit(batchId: Long): Unit = {
+    currentOffsetsAndSeqNums = fetchStartingOffsetOfCurrentBatch(math.max(0, batchId))
+    progressTracker.commit(Map(uid -> currentOffsetsAndSeqNums.offsets), math.max(0, batchId))
   }
 
   private def fetchStartingOffsetOfCurrentBatch(committedBatchId: Long) = {
@@ -174,7 +172,6 @@ private[spark] class EventHubsSource(
 
   private def convertEventHubsRDDToDataFrame(eventHubsRDD: EventHubsRDD): DataFrame = {
     import scala.collection.JavaConverters._
-    val dfSchema = schema
     val internalRowRDD = eventHubsRDD.map(eventData =>
       InternalRow.fromSeq(Seq(eventData.getBody, eventData.getSystemProperties.getOffset.toLong,
         eventData.getSystemProperties.getSequenceNumber,
@@ -190,7 +187,8 @@ private[spark] class EventHubsSource(
     if (currentOffsetsAndSeqNums.batchId == -1) {
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
-      updateCurrentOffsetsAndSeqNumsAndCommit()
+      updateCurrentOffsetsAndSeqNumsAndCommit(start.map(offset =>
+        offset.asInstanceOf[EventHubsBatchRecord].batchId).getOrElse(0L))
     }
     val eventhubsRDD = buildEventHubsRDD(end.asInstanceOf[EventHubsBatchRecord])
     convertEventHubsRDDToDataFrame(eventhubsRDD)

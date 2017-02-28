@@ -18,6 +18,7 @@
 package com.microsoft.spark.sql.examples
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.streaming.ProcessingTime
 
 object EventHubsStructuredStreamingExample {
 
@@ -50,7 +51,10 @@ object EventHubsStructuredStreamingExample {
     val inputStream = sparkSession.readStream.format("eventhubs").options(eventhubParameters)
       .load()
 
-    val streamingQuery = inputStream.writeStream.outputMode("append").format("console").start()
+    val streamingQuery = inputStream.writeStream.
+      outputMode("append").
+      trigger(ProcessingTime("5 seconds")).
+      format("console").start()
     streamingQuery.awaitTermination()
 
   }
