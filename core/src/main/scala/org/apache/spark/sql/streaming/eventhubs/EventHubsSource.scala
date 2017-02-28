@@ -92,7 +92,8 @@ private[spark] class EventHubsSource(
   private[spark] def composeHighestOffset(retryIfFail: Boolean) = {
     RateControlUtils.fetchLatestOffset(eventHubClient, retryIfFail = retryIfFail) match {
       case Some(highestOffsets) =>
-        fetchedHighestOffsetsAndSeqNums = EventHubsOffset(Long.MaxValue, highestOffsets)
+        fetchedHighestOffsetsAndSeqNums = EventHubsOffset(currentOffsetsAndSeqNums.batchId,
+          highestOffsets)
         Some(fetchedHighestOffsetsAndSeqNums.offsets)
       case _ =>
         logWarning(s"failed to fetch highest offset")
@@ -130,6 +131,8 @@ private[spark] class EventHubsSource(
   private def fetchStartingOffsetOfCurrentBatch(committedBatchId: Long) = {
     val startOffsetOfUndergoingBatch = progressTracker.collectProgressRecordsForBatch(
       committedBatchId)
+    logInfo(s"Batch ${currentOffsetsAndSeqNums.batchId}," +
+      s" startOffsetOfUndergoingBatch $startOffsetOfUndergoingBatch")
     if (startOffsetOfUndergoingBatch.isEmpty) {
       // first batch, take the initial value of the offset, -1
       EventHubsOffset(committedBatchId, currentOffsetsAndSeqNums.offsets)
@@ -181,12 +184,10 @@ private[spark] class EventHubsSource(
     convertEventHubsRDDToDataFrame(eventhubsRDD)
   }
 
-  override def stop(): Unit = {
-
-  }
+  override def stop(): Unit = {}
 
   // uniquely identify the entities in eventhubs side, it can be the namespace or the name of a
-  override def uid: String = s"$eventhubsNamespace\\_$eventhubsName"
+  override def uid: String = s"${eventhubsNamespace}_$eventhubsName"
 
   // the list of eventhubs partitions connecting with this connector
   override def connectedInstances: List[EventHubNameAndPartition] = ehNameAndPartitions
