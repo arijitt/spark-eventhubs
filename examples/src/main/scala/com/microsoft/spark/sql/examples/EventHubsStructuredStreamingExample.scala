@@ -49,6 +49,9 @@ object EventHubsStructuredStreamingExample {
     val sparkSession = SparkSession.builder().getOrCreate()
     val inputStream = sparkSession.readStream.format("eventhubs").options(eventhubParameters)
       .load()
-    inputStream.show(100)
+
+    val streamingQuery = inputStream.writeStream.outputMode("complete").format("console").start()
+    streamingQuery.awaitTermination()
+
   }
 }
