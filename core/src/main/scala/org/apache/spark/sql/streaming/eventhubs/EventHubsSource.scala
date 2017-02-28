@@ -113,6 +113,7 @@ private[spark] class EventHubsSource(
   private def failAppIfRestEndpointFail = fetchedHighestOffsetsAndSeqNums == null ||
     currentOffsetsAndSeqNums.offsets.equals(fetchedHighestOffsetsAndSeqNums.offsets)
 
+
   /**
    * @return return the target offset in the next batch
    */
@@ -120,12 +121,20 @@ private[spark] class EventHubsSource(
     val highestOffsetsOpt = composeHighestOffset(failAppIfRestEndpointFail)
     require(highestOffsetsOpt.isDefined, "cannot get highest offset from rest endpoint of" +
       " eventhubs")
+    updateCurrentOffsetsAndSeqNumsAndCommit()
     val targetOffsets = RateControlUtils.clamp(currentOffsetsAndSeqNums.offsets,
       highestOffsetsOpt.get, parameters)
     Some(EventHubsBatchRecord(currentOffsetsAndSeqNums.batchId + 1,
       targetOffsets.map{case (ehNameAndPartition, seqNum) =>
         (ehNameAndPartition, math.min(seqNum,
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
+  }
+
+  private def updateCurrentOffsetsAndSeqNumsAndCommit(): Unit = {
+    currentOffsetsAndSeqNums = fetchStartingOffsetOfCurrentBatch(
+      math.max(currentOffsetsAndSeqNums.batchId, 0))
+    progressTracker.commit(Map(uid -> currentOffsetsAndSeqNums.offsets),
+      currentOffsetsAndSeqNums.batchId)
   }
 
   private def fetchStartingOffsetOfCurrentBatch(committedBatchId: Long) = {
@@ -178,8 +187,11 @@ private[spark] class EventHubsSource(
   }
 
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
-    currentOffsetsAndSeqNums = fetchStartingOffsetOfCurrentBatch(
-      start.map(offset => offset.asInstanceOf[EventHubsBatchRecord].batchId).getOrElse(0L))
+    if (currentOffsetsAndSeqNums.batchId == -1) {
+      // in this case, we are just recovering from a failure; the committedOffsets and
+      // availableOffsets are fetched from in populateStartOffset() of StreamExecution
+      updateCurrentOffsetsAndSeqNumsAndCommit()
+    }
     val eventhubsRDD = buildEventHubsRDD(end.asInstanceOf[EventHubsBatchRecord])
     convertEventHubsRDDToDataFrame(eventhubsRDD)
   }
