@@ -168,7 +168,7 @@ private[spark] class EventHubsSource(
     val internalRowRDD = eventHubsRDD.map(eventData =>
       InternalRow.fromSeq(Seq(eventData.getBody, eventData.getSystemProperties.getOffset.toLong,
         eventData.getSystemProperties.getSequenceNumber,
-        eventData.getSystemProperties.getEnqueuedTime,
+        eventData.getSystemProperties.getEnqueuedTime.getEpochSecond,
         eventData.getSystemProperties.getPublisher,
         eventData.getSystemProperties.getPartitionKey
       ) ++ eventData.getProperties.asScala.values)
