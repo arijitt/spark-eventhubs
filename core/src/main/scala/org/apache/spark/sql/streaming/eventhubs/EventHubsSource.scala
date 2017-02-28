@@ -135,8 +135,8 @@ private[spark] class EventHubsSource(
       EventHubsOffset(committedBatchId, currentOffsetsAndSeqNums.offsets)
     } else {
       EventHubsOffset(committedBatchId,
-        startOffsetOfUndergoingBatch.filter { case (namespace, _) =>
-          namespace == parameters("eventhubs.namespace")
+        startOffsetOfUndergoingBatch.filter { case (connectorUID, _) =>
+          connectorUID == uid
         }.values.head.filter(_._1.eventHubName == parameters("eventhubs.name")))
     }
   }
@@ -155,8 +155,7 @@ private[spark] class EventHubsSource(
       offsetRanges,
       currentOffsetsAndSeqNums.batchId,
       OffsetStoreParams(parameters("eventhubs.progressTrackingDir"),
-        sqlContext.sparkContext.appName,
-        streamId, s"${parameters("eventhubs.namespace")}-${parameters("eventhubs.name")}"),
+        sqlContext.sparkContext.appName, streamId, uid),
       eventhubReceiverCreator
     )
   }
@@ -187,7 +186,7 @@ private[spark] class EventHubsSource(
   }
 
   // uniquely identify the entities in eventhubs side, it can be the namespace or the name of a
-  override def uid: String = s"$eventhubsNamespace-$eventhubsName"
+  override def uid: String = s"$eventhubsNamespace\\_$eventhubsName"
 
   // the list of eventhubs partitions connecting with this connector
   override def connectedInstances: List[EventHubNameAndPartition] = ehNameAndPartitions
