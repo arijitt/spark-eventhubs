@@ -17,7 +17,7 @@
 
 package org.apache.spark.eventhubscommon.progress
 
-import java.io.{BufferedReader, IOException, InputStreamReader}
+import java.io.{BufferedReader, InputStreamReader, IOException}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

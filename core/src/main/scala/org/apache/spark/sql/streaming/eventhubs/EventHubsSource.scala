@@ -40,16 +40,14 @@ private[spark] class EventHubsSource(
     eventhubClientCreator: (String, Map[String, Map[String, String]]) => EventHubClient =
       RestfulEventHubClient.getInstance) extends Source with EventHubsConnector with Logging {
 
-  case class EventHubsOffset(
-                              batchId: Long,
-                              offsets: Map[EventHubNameAndPartition, (Long, Long)])
+  case class EventHubsOffset(batchId: Long, offsets: Map[EventHubNameAndPartition, (Long, Long)])
+
+  ProgressTrackerBase.registeredConnectors += this
 
   private val eventhubsNamespace: String = parameters("eventhubs.namespace")
-
-  require(eventhubsNamespace != null, "eventhubs.namespace is not defined")
-
   private val eventhubsName: String = parameters("eventhubs.name")
 
+  require(eventhubsNamespace != null, "eventhubs.namespace is not defined")
   require(eventhubsName != null, "eventhubs.name is not defined")
 
   private var _eventHubClient: EventHubClient = _
@@ -189,7 +187,7 @@ private[spark] class EventHubsSource(
   }
 
   // uniquely identify the entities in eventhubs side, it can be the namespace or the name of a
-  override def uid: String = eventhubsName
+  override def uid: String = s"$eventhubsNamespace-$eventhubsName"
 
   // the list of eventhubs partitions connecting with this connector
   override def connectedInstances: List[EventHubNameAndPartition] = ehNameAndPartitions
