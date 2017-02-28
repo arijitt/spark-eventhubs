@@ -62,7 +62,7 @@ private[spark] class EventHubsSource(
   }
 
   // initialize ProgressTracker
-  val progressTracker = ProgressTrackerBase.initInstance(
+  private val progressTracker = ProgressTrackerBase.initInstance(
     parameters("eventhubs.progressTrackingDir"), sqlContext.sparkContext.appName,
     sqlContext.sparkContext.hadoopConfiguration, "structuredstreaming")
 
@@ -156,8 +156,9 @@ private[spark] class EventHubsSource(
       Map(parameters("eventhubs.name") -> parameters),
       offsetRanges,
       currentOffsetsAndSeqNums.batchId,
-      OffsetStoreParams(progressTracker.progressDirPath.toString, sqlContext.sparkContext.appName,
-        streamId, s"${parameters("eventhubs.namespace")}-${parameters("eventhubs.name")}}"),
+      OffsetStoreParams(parameters("eventhubs.progressTrackingDir"),
+        sqlContext.sparkContext.appName,
+        streamId, s"${parameters("eventhubs.namespace")}-${parameters("eventhubs.name")}"),
       eventhubReceiverCreator
     )
   }
