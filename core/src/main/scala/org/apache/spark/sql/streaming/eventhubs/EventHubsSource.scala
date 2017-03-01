@@ -139,6 +139,7 @@ private[spark] class EventHubsSource(
     val lastFinishedBatchId = committedBatchId + 1
     committedOffsetsAndSeqNums = fetchEndingOffsetOfLastBatch(lastFinishedBatchId)
     progressTracker.commit(Map(uid -> committedOffsetsAndSeqNums.offsets), lastFinishedBatchId)
+    logInfo(s"committed offset of batch $lastFinishedBatchId")
   }
 
   private def fetchEndingOffsetOfLastBatch(committedBatchId: Long) = {
@@ -188,7 +189,7 @@ private[spark] class EventHubsSource(
   }
 
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
-    if (committedOffsetsAndSeqNums.batchId == -1) {
+    if (firstBatch) {
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
@@ -199,6 +200,7 @@ private[spark] class EventHubsSource(
         case batchRecord: EventHubsBatchRecord =>
           batchRecord.batchId
       }.getOrElse(0L))
+      logInfo(s"recovering from a failure, startOffset: $start, endOffset: $end")
       val highestOffsets = composeHighestOffset(failAppIfRestEndpointFail)
       require(highestOffsets.isDefined, "cannot get highest offsets when recovering from a failure")
       fetchedHighestOffsetsAndSeqNums = EventHubsOffset(committedOffsetsAndSeqNums.batchId,
