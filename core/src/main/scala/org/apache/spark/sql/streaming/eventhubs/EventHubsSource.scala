@@ -196,9 +196,18 @@ private[spark] class EventHubsSource(
         case so: SerializedOffset =>
           val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
           batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
+        case batchRecord: EventHubsBatchRecord =>
+          batchRecord.batchId
       }.getOrElse(0L))
     }
-    val eventhubsRDD = buildEventHubsRDD(end.asInstanceOf[EventHubsBatchRecord])
+    val eventhubsRDD = buildEventHubsRDD({
+      end match {
+        case so: SerializedOffset =>
+          JsonUtils.partitionAndSeqNum(so.json)
+        case batchRecord: EventHubsBatchRecord =>
+          batchRecord
+      }
+    })
     convertEventHubsRDDToDataFrame(eventhubsRDD)
   }
 
