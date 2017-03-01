@@ -42,8 +42,6 @@ private[spark] class EventHubsSource(
 
   case class EventHubsOffset(batchId: Long, offsets: Map[EventHubNameAndPartition, (Long, Long)])
 
-  ProgressTrackerBase.registeredConnectors += this
-
   private val eventhubsNamespace: String = parameters("eventhubs.namespace")
   private val eventhubsName: String = parameters("eventhubs.name")
 
@@ -59,6 +57,14 @@ private[spark] class EventHubsSource(
     _eventHubClient
   }
 
+  private val ehNameAndPartitions = {
+    val partitionCount = parameters("eventhubs.partition.count").toInt
+    (for (partitionId <- 0 until partitionCount)
+      yield EventHubNameAndPartition(eventhubsName, partitionId)).toList
+  }
+
+  ProgressTrackerBase.registeredConnectors += this
+
   // initialize ProgressTracker
   private val progressTracker = ProgressTrackerBase.initInstance(
     parameters("eventhubs.progressTrackingDir"), sqlContext.sparkContext.appName,
@@ -67,12 +73,6 @@ private[spark] class EventHubsSource(
   private[eventhubs] def setEventHubClient(eventHubClient: EventHubClient): EventHubsSource = {
     _eventHubClient = eventHubClient
     this
-  }
-
-  private val ehNameAndPartitions = {
-    val partitionCount = parameters("eventhubs.partition.count").toInt
-    (for (partitionId <- 0 until partitionCount)
-      yield EventHubNameAndPartition(eventhubsName, partitionId)).toList
   }
 
   private var currentOffsetsAndSeqNums: EventHubsOffset =
