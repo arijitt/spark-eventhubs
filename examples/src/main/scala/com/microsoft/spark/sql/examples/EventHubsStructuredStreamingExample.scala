@@ -23,7 +23,7 @@ import org.apache.spark.sql.streaming.ProcessingTime
 object EventHubsStructuredStreamingExample {
 
   def main(args: Array[String]): Unit = {
-    if (args.length != 6) {
+    if (args.length != 7) {
       println("Usage: program progressDir PolicyName PolicyKey EventHubNamespace EventHubName" +
         " maxRate")
       sys.exit(1)
@@ -35,6 +35,7 @@ object EventHubsStructuredStreamingExample {
     val eventHubNamespace = args(3)
     val eventHubName = args(4)
     val maxRate = args(5).toInt
+    val checkpointLocation = args(6)
 
     val eventhubParameters = Map[String, String] (
       "eventhubs.policyname" -> policyName,
@@ -54,6 +55,7 @@ object EventHubsStructuredStreamingExample {
     val streamingQuery = inputStream.writeStream.
       outputMode("append").
       trigger(ProcessingTime("5 seconds")).
+      option("checkpointLocation", checkpointLocation).
       format("console").start()
     streamingQuery.awaitTermination()
 
