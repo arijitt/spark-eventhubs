@@ -23,6 +23,7 @@ import org.apache.spark.sql.streaming.ProcessingTime
 object EventHubsStructuredStreamingExample {
 
   def main(args: Array[String]): Unit = {
+
     if (args.length != 8) {
       println("Usage: program progressDir PolicyName PolicyKey EventHubNamespace EventHubName" +
         " maxRate checkpointLocation outputPath")
