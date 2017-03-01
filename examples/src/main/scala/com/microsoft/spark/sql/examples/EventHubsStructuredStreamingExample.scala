@@ -36,6 +36,7 @@ object EventHubsStructuredStreamingExample {
     val eventHubName = args(4)
     val maxRate = args(5).toInt
     val checkpointLocation = args(6)
+    val outputPath = args(7)
 
     val eventhubParameters = Map[String, String] (
       "eventhubs.policyname" -> policyName,
@@ -56,7 +57,7 @@ object EventHubsStructuredStreamingExample {
       outputMode("append").
       trigger(ProcessingTime("5 seconds")).
       option("checkpointLocation", checkpointLocation).
-      format("console").start()
+      format("parquet").option("path", outputPath).partitionBy("enqueuedTime").start()
     streamingQuery.awaitTermination()
 
   }
