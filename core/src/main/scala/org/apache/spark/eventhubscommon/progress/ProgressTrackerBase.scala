@@ -196,8 +196,7 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
   /**
    * read the progress record for the specified progressEntityID and timestamp
    */
-  def read(targetConnectorID: String, timestamp: Long, fallBack: Boolean,
-           predicateWithinProgressFile: (ProgressRecord, String) => Boolean): OffsetRecord = {
+  def read(targetConnectorUID: String, timestamp: Long, fallBack: Boolean): OffsetRecord = {
     val fs = progressDirPath.getFileSystem(hadoopConfiguration)
     var recordToReturn = Map[EventHubNameAndPartition, (Long, Long)]()
     var readTimestamp: Long = 0
@@ -213,8 +212,8 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
       if (progressFileOption.isEmpty) {
         // if no progress file, then start from the beginning of the streams
         val connectedEventHubs = eventHubNameAndPartitions.find {
-          case (connectorUID, _) => connectorUID == targetConnectorID}
-        require(connectedEventHubs.isDefined, s"cannot find $targetConnectorID in" +
+          case (connectorUID, _) => connectorUID == targetConnectorUID}
+        require(connectedEventHubs.isDefined, s"cannot find $targetConnectorUID in" +
           s" $eventHubNameAndPartitions")
         // it's hacky to take timestamp -1 as the start of streams
         readTimestamp = -1
@@ -228,7 +227,7 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
           s" progress record, expected timestamp $expectedTimestamp")
         readTimestamp = expectedTimestamp
         recordToReturn = recordLines.filter(
-          progressRecord => predicateWithinProgressFile(progressRecord, targetConnectorID)).map(
+          progressRecord => progressRecord.uid == targetConnectorUID).map(
           progressRecord => EventHubNameAndPartition(progressRecord.eventHubName,
             progressRecord.partitionId) -> (progressRecord.offset, progressRecord.seqId)).toMap
       }

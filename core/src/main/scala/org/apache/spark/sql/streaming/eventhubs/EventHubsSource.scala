@@ -122,7 +122,7 @@ private[spark] class EventHubsSource(
     require(highestOffsetsOpt.isDefined, "cannot get highest offset from rest endpoint of" +
       " eventhubs")
     if (!firstBatch) {
-      updateCommittedOffsetsAndSeqNumsAndCommit(committedOffsetsAndSeqNums.batchId)
+      collectFinishedBatchOffsetsAndCommit(committedOffsetsAndSeqNums.batchId)
     } else {
       // use the initial
       firstBatch = false
@@ -135,11 +135,12 @@ private[spark] class EventHubsSource(
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
   }
 
-  private def updateCommittedOffsetsAndSeqNumsAndCommit(committedBatchId: Long): Unit = {
+  private def collectFinishedBatchOffsetsAndCommit(committedBatchId: Long): Unit = {
     val lastFinishedBatchId = committedBatchId + 1
     committedOffsetsAndSeqNums = fetchEndingOffsetOfLastBatch(lastFinishedBatchId)
     progressTracker.commit(Map(uid -> committedOffsetsAndSeqNums.offsets), lastFinishedBatchId)
-    logInfo(s"committed offset of batch $lastFinishedBatchId")
+    logInfo(s"committed offset of batch $lastFinishedBatchId, collectedCommits:" +
+      s" $committedOffsetsAndSeqNums")
   }
 
   private def fetchEndingOffsetOfLastBatch(committedBatchId: Long) = {
@@ -188,19 +189,30 @@ private[spark] class EventHubsSource(
     sqlContext.internalCreateDataFrame(internalRowRDD, schema)
   }
 
+  private def readProgress(batchId: Long): EventHubsOffset = {
+    val progress = progressTracker.read(uid, batchId, fallBack = false)
+    EventHubsOffset(batchId, progress.offsets)
+  }
+
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
     if (firstBatch) {
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
-      updateCommittedOffsetsAndSeqNumsAndCommit(start.map {
-        case so: SerializedOffset =>
-          val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
-          batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
-        case batchRecord: EventHubsBatchRecord =>
-          batchRecord.batchId
-      }.getOrElse(0L))
-      logInfo(s"recovering from a failure, startOffset: $start, endOffset: $end")
+      if (start.isDefined) {
+        // if start is not defined that means we failed at the first batch, we do not need to
+        // anything like collect data, etc., the batch will be rerun, otherwise we read from the
+        // committed log
+        val batchId = start.map {
+          case so: SerializedOffset =>
+            val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
+            batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
+          case batchRecord: EventHubsBatchRecord =>
+            batchRecord.batchId
+        }.get
+        committedOffsetsAndSeqNums = readProgress(batchId)
+      }
+      logInfo(s"recovered from a failure, startOffset: $start, endOffset: $end")
       val highestOffsets = composeHighestOffset(failAppIfRestEndpointFail)
       require(highestOffsets.isDefined, "cannot get highest offsets when recovering from a failure")
       fetchedHighestOffsetsAndSeqNums = EventHubsOffset(committedOffsetsAndSeqNums.batchId,

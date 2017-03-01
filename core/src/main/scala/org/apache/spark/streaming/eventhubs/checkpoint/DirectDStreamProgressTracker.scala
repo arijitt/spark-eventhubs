@@ -89,10 +89,9 @@ private[spark] class DirectDStreamProgressTracker private[spark](
   /**
    * read the progress record for the specified namespace, streamId and timestamp
    */
-  def read(namespace: String, timestamp: Long, fallBack: Boolean):
+  override def read(namespace: String, timestamp: Long, fallBack: Boolean):
       OffsetRecord = driverLock.synchronized {
-    read(namespace, timestamp, fallBack,
-      (pr: ProgressRecord, expectedNamespace: String) => pr.uid == expectedNamespace)
+    read(namespace, timestamp, fallBack)
   }
 
   def close(): Unit = {}
