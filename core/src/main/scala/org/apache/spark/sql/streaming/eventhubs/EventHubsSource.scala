@@ -186,7 +186,7 @@ private[spark] class EventHubsSource(
     )
     sqlContext.internalCreateDataFrame(internalRowRDD, schema)
   }
-
+  
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
     if (committedOffsetsAndSeqNums.batchId == -1 && start.isDefined) {
       // in this case, we are just recovering from a failure; the committedOffsets and
@@ -199,6 +199,11 @@ private[spark] class EventHubsSource(
         case batchRecord: EventHubsBatchRecord =>
           batchRecord.batchId
       }.getOrElse(0L))
+      val highestOffsets = composeHighestOffset(failAppIfRestEndpointFail)
+      require(highestOffsets.isDefined, "cannot get highest offsets when recovering from a failure")
+      fetchedHighestOffsetsAndSeqNums = EventHubsOffset(committedOffsetsAndSeqNums.batchId,
+        highestOffsets.get)
+      initializedBatch = false
     }
     val eventhubsRDD = buildEventHubsRDD({
       end match {
