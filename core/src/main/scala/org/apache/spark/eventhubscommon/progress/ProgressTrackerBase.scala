@@ -59,9 +59,10 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
   protected def allEventNameAndPartitionExist(
       candidateEhNameAndPartitions: Map[String, List[EventHubNameAndPartition]]): Boolean = {
     eventHubNameAndPartitions.forall{
-      case (ehNameSpace, ehNameAndPartitions) =>
-        candidateEhNameAndPartitions.contains(ehNameSpace) &&
-          ehNameAndPartitions.forall(candidateEhNameAndPartitions(ehNameSpace).contains)
+      case (uid, ehNameAndPartitions) =>
+        println(s"${ehNameAndPartitions == null} $candidateEhNameAndPartitions")
+        candidateEhNameAndPartitions.contains(uid) &&
+          ehNameAndPartitions.forall(candidateEhNameAndPartitions(uid).contains)
     }
   }
 
@@ -107,10 +108,10 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
           return (false, latestFileOpt)
         }
         val progressRecord = progressRecordOpt.get
-        val newList = allProgressFiles.getOrElseUpdate(progressRecord.namespace,
+        val newList = allProgressFiles.getOrElseUpdate(progressRecord.uid,
           List[EventHubNameAndPartition]()) :+
           EventHubNameAndPartition(progressRecord.eventHubName, progressRecord.partitionId)
-        allProgressFiles(progressRecord.namespace) = newList
+        allProgressFiles(progressRecord.uid) = newList
         if (timestamp == -1L) {
           timestamp = progressRecord.timestamp
         } else if (progressRecord.timestamp != timestamp) {
@@ -329,10 +330,10 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
     }
     // produce the return value
     records.foreach { progressRecord =>
-      val newMap = ret.getOrElseUpdate(progressRecord.namespace, Map()) +
+      val newMap = ret.getOrElseUpdate(progressRecord.uid, Map()) +
         (EventHubNameAndPartition(progressRecord.eventHubName, progressRecord.partitionId) ->
           (progressRecord.offset, progressRecord.seqId))
-      ret(progressRecord.namespace) = newMap
+      ret(progressRecord.uid) = newMap
     }
     ret.toMap
   }
