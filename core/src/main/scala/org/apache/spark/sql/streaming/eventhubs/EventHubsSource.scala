@@ -75,7 +75,7 @@ private[spark] class EventHubsSource(
     this
   }
 
-  private var initializedBatch = true
+  private var firstBatch = true
   private var committedOffsetsAndSeqNums: EventHubsOffset =
     EventHubsOffset(-1L, ehNameAndPartitions.map((_, (-1L, -1L))).toMap)
   private var fetchedHighestOffsetsAndSeqNums: EventHubsOffset = _
@@ -121,11 +121,11 @@ private[spark] class EventHubsSource(
     val highestOffsetsOpt = composeHighestOffset(failAppIfRestEndpointFail)
     require(highestOffsetsOpt.isDefined, "cannot get highest offset from rest endpoint of" +
       " eventhubs")
-    if (!initializedBatch) {
+    if (!firstBatch) {
       updateCommittedOffsetsAndSeqNumsAndCommit(committedOffsetsAndSeqNums.batchId)
     } else {
       // use the initial
-      initializedBatch = false
+      firstBatch = false
     }
     val targetOffsets = RateControlUtils.clamp(committedOffsetsAndSeqNums.offsets,
       highestOffsetsOpt.get, parameters)
@@ -167,7 +167,7 @@ private[spark] class EventHubsSource(
       sqlContext.sparkContext,
       Map(parameters("eventhubs.name") -> parameters),
       offsetRanges,
-      committedOffsetsAndSeqNums.batchId,
+      committedOffsetsAndSeqNums.batchId + 1,
       OffsetStoreParams(parameters("eventhubs.progressTrackingDir"),
         sqlContext.sparkContext.appName, streamId, uid),
       eventhubReceiverCreator
@@ -203,7 +203,7 @@ private[spark] class EventHubsSource(
       require(highestOffsets.isDefined, "cannot get highest offsets when recovering from a failure")
       fetchedHighestOffsetsAndSeqNums = EventHubsOffset(committedOffsetsAndSeqNums.batchId,
         highestOffsets.get)
-      initializedBatch = false
+      firstBatch = false
     }
     val eventhubsRDD = buildEventHubsRDD({
       end match {
