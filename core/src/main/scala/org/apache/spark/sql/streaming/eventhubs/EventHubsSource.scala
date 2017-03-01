@@ -125,7 +125,7 @@ private[spark] class EventHubsSource(
       updateCommittedOffsetsAndSeqNumsAndCommit(committedOffsetsAndSeqNums.batchId)
     } else {
       // use the initial
-      initializedBatch = true
+      initializedBatch = false
     }
     val targetOffsets = RateControlUtils.clamp(committedOffsetsAndSeqNums.offsets,
       highestOffsetsOpt.get, parameters)
