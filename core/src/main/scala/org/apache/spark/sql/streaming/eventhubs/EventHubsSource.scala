@@ -186,9 +186,9 @@ private[spark] class EventHubsSource(
     )
     sqlContext.internalCreateDataFrame(internalRowRDD, schema)
   }
-  
+
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
-    if (committedOffsetsAndSeqNums.batchId == -1 && start.isDefined) {
+    if (committedOffsetsAndSeqNums.batchId == -1) {
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
