@@ -122,14 +122,18 @@ private[spark] class EventHubsSource(
     committedOffsetsAndSeqNums.offsets.equals(fetchedHighestOffsetsAndSeqNums.offsets)
 
   /**
-   * @return return the target offset of next batch
+   * there are two things to do in this function, first is to collect the ending offsets of last
+   * batch, so that we know the starting offset of the current batch. And then, we calculate the
+   * target seq number of the current batch
+   * @return return the target seqNum of current batch
    */
   override def getOffset: Option[Offset] = {
     val highestOffsetsOpt = composeHighestOffset(failAppIfRestEndpointFail)
     require(highestOffsetsOpt.isDefined, "cannot get highest offset from rest endpoint of" +
       " eventhubs")
     if (!firstBatch) {
-      collectFinishedBatchOffsetsAndCommit(committedOffsetsAndSeqNums.batchId)
+      // committedOffsetsAndSeqNums.batchId is always no larger than the latest finished batch id
+      collectFinishedBatchOffsetsAndCommit(committedOffsetsAndSeqNums.batchId + 1)
     } else {
       firstBatch = false
     }
@@ -141,14 +145,18 @@ private[spark] class EventHubsSource(
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
   }
 
+  /**
+   * collect the ending offsets/seq from executors to driver and commit
+   */
   private def collectFinishedBatchOffsetsAndCommit(committedBatchId: Long): Unit = {
-    val lastFinishedBatchId = committedBatchId + 1
-    committedOffsetsAndSeqNums = fetchEndingOffsetOfLastBatch(lastFinishedBatchId)
-    // we should not worry about the failure of commit, in the implementation of
-    // StructuredStreamingProgressTracker, we will validate the progress file and overwrite the
-    // corrupted file when progressTracker is created
-    progressTracker.commit(Map(uid -> committedOffsetsAndSeqNums.offsets), lastFinishedBatchId)
-    logInfo(s"committed offsets of batch $lastFinishedBatchId, collectedCommits:" +
+    committedOffsetsAndSeqNums = fetchEndingOffsetOfLastBatch(committedBatchId)
+    // we have two ways to handle the failure of commit and precommit:
+    // First, we will validate the progress file and overwrite the corrupted progress file when
+    // progressTracker is created; Second, to handle the case that we fail before we event create
+    // a file, we need to read the latest progress file in the directory and see if we have commit
+    // the offsests (check if the timestamp matches) and then collect the files if necessary
+    progressTracker.commit(Map(uid -> committedOffsetsAndSeqNums.offsets), committedBatchId)
+    logInfo(s"committed offsets of batch $committedBatchId, collectedCommits:" +
       s" $committedOffsetsAndSeqNums")
   }
 
@@ -203,30 +211,39 @@ private[spark] class EventHubsSource(
     EventHubsOffset(batchId, progress.offsets)
   }
 
+  private def recoverFromFailure(start: Option[Offset], end: Offset): Unit = {
+    if (start.isDefined) {
+      // if start is not defined that means we failed at the first batch, we do not need to
+      // anything like collect data, etc., the batch will be rerun, otherwise we read from the
+      // committed log
+      val batchId = start.map {
+        case so: SerializedOffset =>
+          val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
+          batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
+        case batchRecord: EventHubsBatchRecord =>
+          batchRecord.batchId
+      }.get
+      val latestProgress = readProgress(batchId)
+      if (latestProgress.offsets.isEmpty) {
+        collectFinishedBatchOffsetsAndCommit(batchId)
+      } else {
+        committedOffsetsAndSeqNums = latestProgress
+      }
+    }
+    logInfo(s"recovered from a failure, startOffset: $start, endOffset: $end")
+    val highestOffsets = composeHighestOffset(failAppIfRestEndpointFail)
+    require(highestOffsets.isDefined, "cannot get highest offsets when recovering from a failure")
+    fetchedHighestOffsetsAndSeqNums = EventHubsOffset(committedOffsetsAndSeqNums.batchId,
+      highestOffsets.get)
+    firstBatch = false
+  }
+
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
     if (firstBatch) {
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
-      if (start.isDefined) {
-        // if start is not defined that means we failed at the first batch, we do not need to
-        // anything like collect data, etc., the batch will be rerun, otherwise we read from the
-        // committed log
-        val batchId = start.map {
-          case so: SerializedOffset =>
-            val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
-            batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
-          case batchRecord: EventHubsBatchRecord =>
-            batchRecord.batchId
-        }.get
-        committedOffsetsAndSeqNums = readProgress(batchId)
-      }
-      logInfo(s"recovered from a failure, startOffset: $start, endOffset: $end")
-      val highestOffsets = composeHighestOffset(failAppIfRestEndpointFail)
-      require(highestOffsets.isDefined, "cannot get highest offsets when recovering from a failure")
-      fetchedHighestOffsetsAndSeqNums = EventHubsOffset(committedOffsetsAndSeqNums.batchId,
-        highestOffsets.get)
-      firstBatch = false
+      recoverFromFailure(start, end)
     }
     val eventhubsRDD = buildEventHubsRDD({
       end match {
