@@ -30,7 +30,8 @@ import org.apache.spark.sql.execution.streaming.{Offset, SerializedOffset, Sourc
 import org.apache.spark.sql.types._
 
 /**
- * each source is mapped to an eventhubs instance
+ * EventHubSource connecting each EventHubs instance to a Structured Streaming Source
+ * @param parameters the eventhubs parameters
  */
 private[spark] class EventHubsSource(
     sqlContext: SQLContext,
@@ -63,6 +64,8 @@ private[spark] class EventHubsSource(
       yield EventHubNameAndPartition(eventhubsName, partitionId)).toList
   }
 
+  // EventHubsSource is created for each instance of program, that means it is different with
+  // DStream which will load the serialized Direct DStream instance from checkpoint
   ProgressTrackerBase.registeredConnectors += this
 
   // initialize ProgressTracker
@@ -75,9 +78,12 @@ private[spark] class EventHubsSource(
     this
   }
 
+  // the flag to avoid committing in the first batch
   private var firstBatch = true
+  // the offsets which have been to the self-managed offset store
   private var committedOffsetsAndSeqNums: EventHubsOffset =
     EventHubsOffset(-1L, ehNameAndPartitions.map((_, (-1L, -1L))).toMap)
+  // the highest offsets in EventHubs side
   private var fetchedHighestOffsetsAndSeqNums: EventHubsOffset = _
 
   override def schema: StructType = {
@@ -115,7 +121,7 @@ private[spark] class EventHubsSource(
     committedOffsetsAndSeqNums.offsets.equals(fetchedHighestOffsetsAndSeqNums.offsets)
 
   /**
-   * @return return the target offset in the next batch
+   * @return return the target offset of next batch
    */
   override def getOffset: Option[Offset] = {
     val highestOffsetsOpt = composeHighestOffset(failAppIfRestEndpointFail)
@@ -124,7 +130,6 @@ private[spark] class EventHubsSource(
     if (!firstBatch) {
       collectFinishedBatchOffsetsAndCommit(committedOffsetsAndSeqNums.batchId)
     } else {
-      // use the initial
       firstBatch = false
     }
     val targetOffsets = RateControlUtils.clamp(committedOffsetsAndSeqNums.offsets,
@@ -138,8 +143,11 @@ private[spark] class EventHubsSource(
   private def collectFinishedBatchOffsetsAndCommit(committedBatchId: Long): Unit = {
     val lastFinishedBatchId = committedBatchId + 1
     committedOffsetsAndSeqNums = fetchEndingOffsetOfLastBatch(lastFinishedBatchId)
+    // we should not worry about the failure of commit, in the implementation of
+    // StructuredStreamingProgressTracker, we will validate the progress file and overwrite the
+    // corrupted file when progressTracker is created
     progressTracker.commit(Map(uid -> committedOffsetsAndSeqNums.offsets), lastFinishedBatchId)
-    logInfo(s"committed offset of batch $lastFinishedBatchId, collectedCommits:" +
+    logInfo(s"committed offsets of batch $lastFinishedBatchId, collectedCommits:" +
       s" $committedOffsetsAndSeqNums")
   }
 
