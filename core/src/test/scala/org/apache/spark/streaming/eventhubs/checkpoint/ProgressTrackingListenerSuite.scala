@@ -102,7 +102,7 @@ class ProgressTrackingListenerSuite extends SharedUtils {
     import scala.collection.JavaConverters._
     assert(ssc.scheduler.listenerBus.listeners.asScala.count(
       _.isInstanceOf[ProgressTrackingListener]) === 1)
-    assert(ProgressTrackerBase.registeredConnectors.length === 2)
+    assert(DirectDStreamProgressTracker.registeredConnectors.length === 2)
     ssc.stop()
   }
 }

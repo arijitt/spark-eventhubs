@@ -27,6 +27,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.streaming.{Offset, SerializedOffset, Source}
+import org.apache.spark.sql.streaming.eventhubs.checkpoint.StructuredStreamingProgressTracker
 import org.apache.spark.sql.types._
 
 /**
@@ -66,12 +67,12 @@ private[spark] class EventHubsSource(
 
   // EventHubsSource is created for each instance of program, that means it is different with
   // DStream which will load the serialized Direct DStream instance from checkpoint
-  ProgressTrackerBase.registeredConnectors += this
+  StructuredStreamingProgressTracker.registeredConnectors += uid -> this
 
   // initialize ProgressTracker
-  private val progressTracker = ProgressTrackerBase.initInstance(
-    parameters("eventhubs.progressTrackingDir"), sqlContext.sparkContext.appName,
-    sqlContext.sparkContext.hadoopConfiguration, "structuredstreaming")
+  private val progressTracker = StructuredStreamingProgressTracker.initInstance(
+    uid, parameters("eventhubs.progressTrackingDir"), sqlContext.sparkContext.appName,
+    sqlContext.sparkContext.hadoopConfiguration)
 
   private[eventhubs] def setEventHubClient(eventHubClient: EventHubClient): EventHubsSource = {
     _eventHubClient = eventHubClient

@@ -28,9 +28,7 @@ import org.apache.hadoop.fs._
 
 import org.apache.spark.eventhubscommon.{EventHubNameAndPartition, EventHubsConnector, OffsetRecord}
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.streaming.eventhubs.checkpoint.StructuredStreamingProgressTracker
 import org.apache.spark.streaming.Time
-import org.apache.spark.streaming.eventhubs.checkpoint.DirectDStreamProgressTracker
 
 private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
     progressDir: String, appName: String, hadoopConfiguration: Configuration) extends Logging {
@@ -43,11 +41,7 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
   private[spark] val progressDirPath = new Path(progressDirStr)
   private[spark] val progressTempDirPath = new Path(progressTempDirStr)
 
-  def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]] = {
-    ProgressTrackerBase.registeredConnectors.map {
-      connector => (connector.uid, connector.connectedInstances)
-    }.toMap
-  }
+  def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]]
 
   // getModificationTime is not reliable for unit test and some extreme case in distributed
   // file system so that we have to derive timestamp from the file names. The timestamp can be the
@@ -339,39 +333,4 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
   }
 
   def init(): Unit
-}
-
-
-private[spark] object ProgressTrackerBase {
-  val registeredConnectors = new ListBuffer[EventHubsConnector]
-
-  private var _progressTracker: ProgressTrackerBase[_ <: EventHubsConnector] = _
-
-  private[spark] def reset(): Unit = {
-    registeredConnectors.clear()
-    _progressTracker = null
-  }
-
-  def getInstance: ProgressTrackerBase[_ <: EventHubsConnector] = _progressTracker
-
-  private[spark] def initInstance(
-      progressDirStr: String,
-      appName: String,
-      hadoopConfiguration: Configuration,
-      ProgressTrackerType: String): ProgressTrackerBase[_ <: EventHubsConnector] =
-    this.synchronized {
-      if (_progressTracker == null) {
-        ProgressTrackerType match {
-          case "directDStream" =>
-            _progressTracker = new DirectDStreamProgressTracker(progressDirStr,
-              appName,
-              hadoopConfiguration)
-          case "structuredstreaming" =>
-            _progressTracker = new StructuredStreamingProgressTracker(progressDirStr,
-              appName, hadoopConfiguration)
-        }
-        _progressTracker.init()
-      }
-    _progressTracker
-  }
 }

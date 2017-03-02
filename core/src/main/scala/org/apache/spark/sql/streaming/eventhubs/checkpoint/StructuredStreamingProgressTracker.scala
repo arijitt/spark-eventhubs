@@ -17,15 +17,34 @@
 
 package org.apache.spark.sql.streaming.eventhubs.checkpoint
 
-import org.apache.hadoop.conf.Configuration
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
-import org.apache.spark.eventhubscommon.progress.ProgressTrackerBase
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
+
+import org.apache.spark.eventhubscommon.{EventHubNameAndPartition, EventHubsConnector}
+import org.apache.spark.eventhubscommon.progress.{PathTools, ProgressTrackerBase}
 
 class StructuredStreamingProgressTracker(
+    uid: String,
     progressDir: String,
     appName: String,
     hadoopConfiguration: Configuration)
   extends ProgressTrackerBase(progressDir, appName, hadoopConfiguration) {
+
+  protected override val progressDirStr: String = PathTools.progressDirPathStr(
+    progressDir, appName, uid)
+  protected override val progressTempDirStr: String = PathTools.progressTempDirPathStr(
+    progressDir, appName, uid)
+
+  private[spark] override val progressDirPath = new Path(progressDirStr)
+  private[spark] override val progressTempDirPath = new Path(progressTempDirStr)
+
+  override def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]] = {
+    val connector = StructuredStreamingProgressTracker.registeredConnectors(uid)
+    Map(connector.uid -> connector.connectedInstances)
+  }
 
   override def init(): Unit = {
     // recover from partially executed checkpoint commit
@@ -58,5 +77,37 @@ class StructuredStreamingProgressTracker(
     } finally {
       // EMPTY
     }
+  }
+}
+
+object StructuredStreamingProgressTracker {
+
+  val registeredConnectors = new mutable.HashMap[String, EventHubsConnector]
+
+  private var _progressTrackers = new mutable.HashMap[String, StructuredStreamingProgressTracker]
+
+  private[spark] def reset(): Unit = {
+    registeredConnectors.clear()
+    _progressTrackers.clear()
+  }
+
+  def getInstance(uid: String): ProgressTrackerBase[_ <: EventHubsConnector] =
+    _progressTrackers(uid)
+
+  private[spark] def initInstance(
+      uid: String,
+      progressDirStr: String,
+      appName: String,
+      hadoopConfiguration: Configuration): ProgressTrackerBase[_ <: EventHubsConnector] = {
+    this.synchronized {
+      // DirectDStream shall have singleton progress tracker
+      if (_progressTrackers.get(uid).isEmpty) {
+        _progressTrackers += uid -> new StructuredStreamingProgressTracker(uid, progressDirStr,
+          appName,
+          hadoopConfiguration)
+      }
+      _progressTrackers(uid).init()
+    }
+    _progressTrackers(uid)
   }
 }
