@@ -46,7 +46,6 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
 
   def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]]
 
-
   private[spark] def progressDirectoryPath = progressDirPath
   private[spark] def progressTempDirectoryPath = progressTempDirPath
 

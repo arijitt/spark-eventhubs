@@ -26,7 +26,9 @@ private[spark] object PathTools extends Serializable {
   }
 
   def progressDirPathStr(checkpointDir: String, subDirNames: String*): String = {
-    s"$checkpointDir/${fromSubDirNamesToString(subDirNames).toString}"
+    val r = s"$checkpointDir/${fromSubDirNamesToString(subDirNames)}"
+    println(r)
+    r
   }
 
   def progressTempDirPathStr(checkpointDir: String, subDirNames: String*): String = {
