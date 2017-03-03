@@ -19,5 +19,4 @@ package org.apache.spark.eventhubscommon.rdd
 
 // a bridging object to avoid serialzing offsetstore instances
 private[spark] case class OffsetStoreParams(
-    checkpointDir: String, appName: String,
-    streamId: Int, uid: String, subDirs: String*)
+    checkpointDir: String, streamId: Int, uid: String, subDirs: String*)

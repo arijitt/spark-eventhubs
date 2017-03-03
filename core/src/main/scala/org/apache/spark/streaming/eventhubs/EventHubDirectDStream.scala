@@ -226,8 +226,8 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
       eventhubsParams,
       offsetRanges,
       validTime.milliseconds,
-      OffsetStoreParams(progressDir, ssc.sparkContext.appName, streamId, eventHubNameSpace,
-        ssc.sparkContext.appName),
+      OffsetStoreParams(progressDir, streamId, uid = eventHubNameSpace,
+        subDirs = ssc.sparkContext.appName),
       eventhubReceiverCreator)
     reportInputInto(validTime, offsetRanges,
       offsetRanges.map(ofr => ofr.untilSeq - ofr.fromSeq).sum.toInt)
@@ -328,7 +328,8 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
       // we have to initialize here, otherwise there is a race condition when recovering from spark
       // checkpoint
       logInfo("initialized ProgressTracker")
-      DirectDStreamProgressTracker.initInstance(progressDir, context.sparkContext.appName,
+      val appName = context.sparkContext.appName
+      DirectDStreamProgressTracker.initInstance(progressDir, appName,
         context.sparkContext.hadoopConfiguration)
       batchForTime.toSeq.sortBy(_._1)(Time.ordering).foreach { case (t, b) =>
         logInfo(s"Restoring EventHubRDD for time $t ${b.mkString("[", ", ", "]")}")
@@ -338,7 +339,8 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
           b.map {case (ehNameAndPar, fromOffset, fromSeq, untilSeq) =>
             OffsetRange(ehNameAndPar, fromOffset, fromSeq, untilSeq)}.toList,
           t.milliseconds,
-          OffsetStoreParams(progressDir, ssc.sparkContext.appName, streamId, eventHubNameSpace),
+          OffsetStoreParams(progressDir, streamId, uid = eventHubNameSpace,
+            subDirs = appName),
           eventhubReceiverCreator)
       }
     }
