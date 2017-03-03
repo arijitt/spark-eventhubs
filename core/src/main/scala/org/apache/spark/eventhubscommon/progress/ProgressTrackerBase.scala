@@ -38,6 +38,9 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
   protected val progressTempDirStr: String = PathTools.progressTempDirPathStr(progressDir,
     appName)
 
+  println(progressDirStr)
+  println(progressTempDirStr)
+
   private[spark] val progressDirPath = new Path(progressDirStr)
   private[spark] val progressTempDirPath = new Path(progressTempDirStr)
 
