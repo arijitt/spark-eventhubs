@@ -41,10 +41,14 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
   println(progressDirStr)
   println(progressTempDirStr)
 
-  private[spark] val progressDirPath = new Path(progressDirStr)
-  private[spark] val progressTempDirPath = new Path(progressTempDirStr)
+  protected val progressDirPath = new Path(progressDirStr)
+  protected val progressTempDirPath = new Path(progressTempDirStr)
 
   def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]]
+
+
+  private[spark] def progressDirectoryPath = progressDirPath
+  private[spark] def progressTempDirectoryPath = progressTempDirPath
 
   // getModificationTime is not reliable for unit test and some extreme case in distributed
   // file system so that we have to derive timestamp from the file names. The timestamp can be the

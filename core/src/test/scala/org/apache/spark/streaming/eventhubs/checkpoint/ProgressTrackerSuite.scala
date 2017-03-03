@@ -38,8 +38,8 @@ class ProgressTrackerSuite extends SharedUtils {
     " directory do not exist") {
     progressTracker = DirectDStreamProgressTracker.initInstance(progressRootPath.toString, appName,
       new Configuration())
-    assert(fs.exists(progressTracker.progressDirPath))
-    assert(fs.exists(progressTracker.progressTempDirPath))
+    assert(fs.exists(progressTracker.progressDirectoryPath))
+    assert(fs.exists(progressTracker.progressTempDirectoryPath))
   }
 
   test("progress temp directory is created properly when progress exists while progress" +
@@ -48,8 +48,8 @@ class ProgressTrackerSuite extends SharedUtils {
       appName)))
     progressTracker = DirectDStreamProgressTracker.initInstance(progressRootPath.toString, appName,
       new Configuration())
-    assert(fs.exists(progressTracker.progressTempDirPath))
-    assert(fs.exists(progressTracker.progressDirPath))
+    assert(fs.exists(progressTracker.progressDirectoryPath))
+    assert(fs.exists(progressTracker.progressTempDirectoryPath))
   }
 
   test("temp progress is cleaned up when a potentially partial temp progress exists") {
@@ -61,8 +61,8 @@ class ProgressTrackerSuite extends SharedUtils {
     assert(filesBefore.size === 1)
     progressTracker = DirectDStreamProgressTracker.initInstance(progressRootPath.toString, appName,
         new Configuration())
-    assert(fs.exists(progressTracker.progressTempDirPath))
-    val filesAfter = fs.listStatus(progressTracker.progressTempDirPath)
+    assert(fs.exists(progressTracker.progressTempDirectoryPath))
+    val filesAfter = fs.listStatus(progressTracker.progressTempDirectoryPath)
     assert(filesAfter.size === 0)
   }
 

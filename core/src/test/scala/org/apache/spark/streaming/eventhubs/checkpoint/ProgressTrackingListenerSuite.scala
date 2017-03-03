@@ -53,7 +53,7 @@ class ProgressTrackingListenerSuite extends SharedUtils {
     assert(fs.exists(progressWriter.tempProgressTrackingPointPath))
     progressListener.onBatchCompleted(batchCompletedEvent)
     assert(fs.exists(progressWriter.tempProgressTrackingPointPath))
-    assert(fs.exists(new Path(progressTracker.progressDirPath + "/progress-1000")))
+    assert(fs.exists(new Path(progressTracker.progressDirectoryPath + "/progress-1000")))
     val record = progressTracker.asInstanceOf[DirectDStreamProgressTracker].read(eventhubNamespace,
       1000L, fallBack = false)
     assert(record === OffsetRecord(Time(1000L),
@@ -76,13 +76,13 @@ class ProgressTrackingListenerSuite extends SharedUtils {
     // build temp directories
     val progressWriter = new ProgressWriter(streamId, eventhubNamespace,
       EventHubNameAndPartition("eh1", 1), 1000L,
-      new Configuration(), progressTracker.progressTempDirPath.toString,
+      new Configuration(), progressTracker.progressTempDirectoryPath.toString,
       appName)
     progressWriter.write(1000L, 0L, 0L)
     assert(fs.exists(progressWriter.tempProgressTrackingPointPath))
     progressListener.onBatchCompleted(batchCompletedEvent)
     assert(fs.exists(progressWriter.tempProgressTrackingPointPath))
-    assert(!fs.exists(new Path(progressTracker.progressDirPath + "/progress-1000")))
+    assert(!fs.exists(new Path(progressTracker.progressDirectoryPath + "/progress-1000")))
   }
 
   test("ProgressTrackingListener is registered correctly") {
