@@ -226,7 +226,8 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
       eventhubsParams,
       offsetRanges,
       validTime.milliseconds,
-      OffsetStoreParams(progressDir, ssc.sparkContext.appName, streamId, eventHubNameSpace),
+      OffsetStoreParams(progressDir, ssc.sparkContext.appName, streamId, eventHubNameSpace,
+        ssc.sparkContext.appName),
       eventhubReceiverCreator)
     reportInputInto(validTime, offsetRanges,
       offsetRanges.map(ofr => ofr.untilSeq - ofr.fromSeq).sum.toInt)
