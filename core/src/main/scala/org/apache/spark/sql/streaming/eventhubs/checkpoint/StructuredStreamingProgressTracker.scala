@@ -33,9 +33,9 @@ class StructuredStreamingProgressTracker(
     hadoopConfiguration: Configuration)
   extends ProgressTrackerBase(progressDir, appName, hadoopConfiguration) {
 
-  protected override val progressDirStr: String = PathTools.progressDirPathStr(
+  protected override lazy val progressDirStr: String = PathTools.progressDirPathStr(
     progressDir, appName, uid)
-  protected override val progressTempDirStr: String = PathTools.progressTempDirPathStr(
+  protected override lazy val progressTempDirStr: String = PathTools.progressTempDirPathStr(
     progressDir, appName, uid)
 
   override def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]] = {
