@@ -188,7 +188,7 @@ private[spark] class EventHubsSource(
       offsetRanges,
       committedOffsetsAndSeqNums.batchId + 1,
       OffsetStoreParams(parameters("eventhubs.progressTrackingDir"),
-        sqlContext.sparkContext.appName, streamId, uid),
+        sqlContext.sparkContext.appName, streamId, uid, uid),
       eventhubReceiverCreator
     )
   }

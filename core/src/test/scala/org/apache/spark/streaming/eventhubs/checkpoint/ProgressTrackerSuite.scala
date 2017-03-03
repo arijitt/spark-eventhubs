@@ -209,17 +209,17 @@ class ProgressTrackerSuite extends SharedUtils {
   test("snapshot progress tracking records can be read correctly") {
     progressTracker = DirectDStreamProgressTracker.initInstance(progressRootPath.toString, appName,
       new Configuration())
-    var progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace1",
-      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration())
+    var progressWriter = new ProgressWriter(0, "namespace1", EventHubNameAndPartition("eh1", 0),
+      1000L, new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 0, 1)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace1",
-      EventHubNameAndPartition("eh2", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace1", EventHubNameAndPartition("eh2", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 0, 1)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace2",
-      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace2", EventHubNameAndPartition("eh1", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 10, 20)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace2",
-      EventHubNameAndPartition("eh2", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace2", EventHubNameAndPartition("eh2", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 20, 30)
     val s = progressTracker.asInstanceOf[DirectDStreamProgressTracker].
       collectProgressRecordsForBatch(1000L)
@@ -234,17 +234,18 @@ class ProgressTrackerSuite extends SharedUtils {
   test("inconsistent timestamp in temp progress directory can be detected") {
     progressTracker = DirectDStreamProgressTracker.initInstance(progressRootPath.toString, appName,
       new Configuration())
-    var progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace1",
-      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration())
+    var progressWriter = new ProgressWriter(0, "namespace1",
+      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration(), progressRootPath.toString,
+      appName)
     progressWriter.write(1000L, 0, 1)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace1",
-      EventHubNameAndPartition("eh2", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace1", EventHubNameAndPartition("eh2", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 0, 1)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace2",
-      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace2", EventHubNameAndPartition("eh1", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(2000L, 10, 20)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace2",
-      EventHubNameAndPartition("eh2", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace2", EventHubNameAndPartition("eh2", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 20, 30)
     intercept[IllegalStateException] {
       progressTracker.asInstanceOf[DirectDStreamProgressTracker].
@@ -256,17 +257,17 @@ class ProgressTrackerSuite extends SharedUtils {
     progressTracker = DirectDStreamProgressTracker.initInstance(progressRootPath.toString, appName,
       new Configuration())
 
-    var progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace1",
-      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration())
+    var progressWriter = new ProgressWriter(0, "namespace1", EventHubNameAndPartition("eh1", 0),
+      1000L, new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 0, 0)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace1",
-      EventHubNameAndPartition("eh2", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace1", EventHubNameAndPartition("eh2", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 1, 1)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace2",
-      EventHubNameAndPartition("eh1", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace2", EventHubNameAndPartition("eh1", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 2, 2)
-    progressWriter = new ProgressWriter(progressRootPath.toString, appName, 0, "namespace2",
-      EventHubNameAndPartition("eh2", 0), 1000L, new Configuration())
+    progressWriter = new ProgressWriter(0, "namespace2", EventHubNameAndPartition("eh2", 0), 1000L,
+      new Configuration(), progressRootPath.toString, appName)
     progressWriter.write(1000L, 3, 3)
 
     val offsetToCommit = Map(
