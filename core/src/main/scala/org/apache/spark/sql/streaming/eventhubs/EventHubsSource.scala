@@ -212,23 +212,26 @@ private[spark] class EventHubsSource(
   }
 
   private def recoverFromFailure(start: Option[Offset], end: Offset): Unit = {
-    if (start.isDefined) {
-      // if start is not defined that means we failed at the first batch, we do not need to
-      // anything like collect data, etc., the batch will be rerun, otherwise we read from the
-      // committed log
-      val batchId = start.map {
-        case so: SerializedOffset =>
-          val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
-          batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
-        case batchRecord: EventHubsBatchRecord =>
-          batchRecord.batchId
-      }.get
-      val latestProgress = readProgress(batchId)
-      if (latestProgress.offsets.isEmpty) {
-        collectFinishedBatchOffsetsAndCommit(batchId)
+    val recoveredCommittedBatchId = {
+      if (start.isEmpty) {
+        -1
       } else {
-        committedOffsetsAndSeqNums = latestProgress
+        start.map {
+          case so: SerializedOffset =>
+            val batchRecord = JsonUtils.partitionAndSeqNum(so.json)
+            batchRecord.asInstanceOf[EventHubsBatchRecord].batchId
+          case batchRecord: EventHubsBatchRecord =>
+            batchRecord.batchId
+        }.get
       }
+    }
+    val latestProgress = readProgress(recoveredCommittedBatchId)
+    if (latestProgress.offsets.isEmpty && start.isDefined) {
+      // we shall not commit when start is empty, otherwise, we will have a duplicate processing
+      // of the first batch
+      collectFinishedBatchOffsetsAndCommit(recoveredCommittedBatchId)
+    } else {
+      committedOffsetsAndSeqNums = latestProgress
     }
     logInfo(s"recovered from a failure, startOffset: $start, endOffset: $end")
     val highestOffsets = composeHighestOffset(failAppIfRestEndpointFail)

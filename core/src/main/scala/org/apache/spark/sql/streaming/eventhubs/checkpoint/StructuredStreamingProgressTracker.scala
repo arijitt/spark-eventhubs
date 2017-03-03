@@ -61,12 +61,6 @@ class StructuredStreamingProgressTracker(
       } else {
         fs.mkdirs(progressDirPath)
       }
-      val checkpointTempDirExisted = fs.exists(progressTempDirPath)
-      if (checkpointTempDirExisted) {
-        fs.delete(progressTempDirPath, true)
-        logInfo(s"cleanup temp checkpoint $progressTempDirPath")
-      }
-      fs.mkdirs(progressTempDirPath)
     } catch {
       case ex: Exception =>
         ex.printStackTrace()
