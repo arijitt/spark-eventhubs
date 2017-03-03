@@ -22,11 +22,7 @@ import org.apache.spark.eventhubscommon.EventHubNameAndPartition
 private[spark] object PathTools extends Serializable {
 
   private def fromSubDirNamesToString(subDirs: Seq[String]): String = {
-    val subDirStr = new StringBuilder()
-    for (subDir <- subDirs) {
-      subDirStr.append(subDir + "/")
-    }
-    subDirStr.toString()
+    subDirs.mkString("/")
   }
 
   def progressDirPathStr(checkpointDir: String, subDirNames: String*): String = {
