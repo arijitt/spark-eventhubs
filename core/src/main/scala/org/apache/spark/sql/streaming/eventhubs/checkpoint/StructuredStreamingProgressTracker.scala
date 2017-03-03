@@ -38,9 +38,6 @@ class StructuredStreamingProgressTracker(
   protected override val progressTempDirStr: String = PathTools.progressTempDirPathStr(
     progressDir, appName, uid)
 
-  protected override val progressDirPath = new Path(progressDirStr)
-  protected override val progressTempDirPath = new Path(progressTempDirStr)
-
   override def eventHubNameAndPartitions: Map[String, List[EventHubNameAndPartition]] = {
     val connector = StructuredStreamingProgressTracker.registeredConnectors(uid)
     Map(connector.uid -> connector.connectedInstances)
