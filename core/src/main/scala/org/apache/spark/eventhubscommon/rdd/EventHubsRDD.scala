@@ -83,7 +83,7 @@ private[spark] class EventHubsRDD(
     val eventHubPartition = split.asInstanceOf[EventHubRDDPartition]
     val progressWriter = new ProgressWriter(offsetParams.streamId, offsetParams.uid,
       eventHubPartition.eventHubNameAndPartitionID, batchTime, new Configuration(),
-      offsetParams.checkpointDir, offsetParams.appName)
+      offsetParams.checkpointDir, offsetParams.subDirs: _*)
     val fromOffset = eventHubPartition.fromOffset
     if (eventHubPartition.fromSeq >= eventHubPartition.untilSeq) {
       logInfo(s"No new data in ${eventHubPartition.eventHubNameAndPartitionID} at $batchTime")

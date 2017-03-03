@@ -31,7 +31,8 @@ private[spark] class ProgressWriter(
      eventHubNameAndPartition: EventHubNameAndPartition,
      timestamp: Long,
      hadoopConfiguration: Configuration,
-     progressDir: String, subDirIdentifiers: String*) extends Logging {
+     progressDir: String,
+     subDirIdentifiers: String*) extends Logging {
 
   private val tempProgressTrackingPointStr = PathTools.progressTempFileStr(
     PathTools.progressTempDirPathStr(progressDir, subDirIdentifiers: _*),

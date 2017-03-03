@@ -34,8 +34,8 @@ private[spark] abstract class ProgressTrackerBase[T <: EventHubsConnector](
     progressDir: String, appName: String, hadoopConfiguration: Configuration) extends Logging {
 
 
-  protected val progressDirStr: String = PathTools.progressDirPathStr(progressDir, appName)
-  protected val progressTempDirStr: String = PathTools.progressTempDirPathStr(progressDir,
+  protected lazy val progressDirStr: String = PathTools.progressDirPathStr(progressDir, appName)
+  protected lazy val progressTempDirStr: String = PathTools.progressTempDirPathStr(progressDir,
     appName)
 
   protected lazy val progressDirPath = new Path(progressDirStr)
