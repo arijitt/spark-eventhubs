@@ -30,9 +30,7 @@ private[spark] object PathTools extends Serializable {
   }
 
   def progressTempDirPathStr(checkpointDir: String, subDirNames: String*): String = {
-    val str = fromSubDirNamesToString(subDirNames)
-    // remove the last "/"
-    s"$checkpointDir/${str.take(str.length - 1)}_temp/"
+    s"$checkpointDir/${fromSubDirNamesToString(subDirNames)}_temp"
   }
 
   def progressTempFileStr(basePath: String,
