@@ -54,7 +54,7 @@ object TestStreaming {
       Map(eventHubName -> eventhubParameters))
 
     inputDirectStream.foreachRDD { rdd =>
-      println(rdd.collect().toList)
+      println(rdd.collect().map(eventData => new String(eventData.getBody).length).toList)
     }
 
     ssc.start()
