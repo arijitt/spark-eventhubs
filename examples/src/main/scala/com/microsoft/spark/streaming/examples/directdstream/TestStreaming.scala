@@ -35,6 +35,7 @@ object TestStreaming {
     val eventHubNamespace = args(3)
     val eventHubName = args(4)
     val batchDuration = args(5).toInt
+    val maxRate = args(6).toInt
 
     val eventhubParameters = Map[String, String] (
       "eventhubs.policyname" -> policyName,
@@ -42,7 +43,8 @@ object TestStreaming {
       "eventhubs.namespace" -> eventHubNamespace,
       "eventhubs.name" -> eventHubName,
       "eventhubs.partition.count" -> "2",
-      "eventhubs.consumergroup" -> "$Default"
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.maxRate" -> maxRate.toString
     )
 
     val ssc = new StreamingContext(new SparkContext(), Seconds(batchDuration))
