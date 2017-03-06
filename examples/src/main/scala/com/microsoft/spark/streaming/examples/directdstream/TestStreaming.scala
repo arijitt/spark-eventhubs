@@ -23,9 +23,9 @@ import org.apache.spark.streaming.eventhubs.EventHubsUtils
 
 object TestStreaming {
   def main(args: Array[String]): Unit = {
-    if (args.length != 6) {
+    if (args.length != 7) {
       println("Usage: program progressDir PolicyName PolicyKey EventHubNamespace EventHubName" +
-        " BatchDuration(seconds)")
+        " BatchDuration(seconds) maxRate")
       sys.exit(1)
     }
 
