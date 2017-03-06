@@ -49,7 +49,7 @@ object TestStreaming {
     )
 
     val ssc = new StreamingContext(new SparkContext(), Seconds(batchDuration))
-    ssc.checkpoint(s"hdfs://mycluster/${args(7)}")
+    ssc.checkpoint(args(7))
 
     val inputDirectStream = EventHubsUtils.createDirectStreams(
       ssc,
