@@ -23,9 +23,9 @@ import org.apache.spark.streaming.eventhubs.EventHubsUtils
 
 object TestStreaming {
   def main(args: Array[String]): Unit = {
-    if (args.length != 7) {
+    if (args.length != 8) {
       println("Usage: program progressDir PolicyName PolicyKey EventHubNamespace EventHubName" +
-        " BatchDuration(seconds) maxRate")
+        " BatchDuration(seconds) maxRate checkpointDir")
       sys.exit(1)
     }
 
@@ -36,6 +36,7 @@ object TestStreaming {
     val eventHubName = args(4)
     val batchDuration = args(5).toInt
     val maxRate = args(6).toInt
+    val checkpointDir = args(7)
 
     val eventhubParameters = Map[String, String] (
       "eventhubs.policyname" -> policyName,
@@ -48,6 +49,7 @@ object TestStreaming {
     )
 
     val ssc = new StreamingContext(new SparkContext(), Seconds(batchDuration))
+    ssc.checkpoint(s"hdfs://mycluster/${args(7)}")
 
     val inputDirectStream = EventHubsUtils.createDirectStreams(
       ssc,
