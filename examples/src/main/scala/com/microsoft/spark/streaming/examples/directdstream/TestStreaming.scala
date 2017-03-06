@@ -18,7 +18,7 @@
 package com.microsoft.spark.streaming.examples.directdstream
 
 import org.apache.spark.SparkContext
-import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.{Duration, Seconds, StreamingContext}
 import org.apache.spark.streaming.eventhubs.EventHubsUtils
 
 object TestStreaming {
@@ -52,6 +52,8 @@ object TestStreaming {
       eventHubNamespace,
       progressDir,
       Map(eventHubName -> eventhubParameters))
+
+    inputDirectStream.checkpoint(Seconds(30))
 
     inputDirectStream.foreachRDD { rdd =>
       require(rdd.collect().forall(eventData => eventData.getBody.length == 20000))
