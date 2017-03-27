@@ -19,6 +19,8 @@ package org.apache.spark.sql.streaming.eventhubs
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.microsoft.azure.eventhubs.EventData
+
 import org.apache.spark.eventhubscommon.{EventHubNameAndPartition, EventHubsConnector, RateControlUtils}
 import org.apache.spark.eventhubscommon.client.{EventHubClient, EventHubsClientWrapper, RestfulEventHubClient}
 import org.apache.spark.eventhubscommon.rdd.{EventHubsRDD, OffsetRange, OffsetStoreParams}
@@ -87,9 +89,7 @@ private[spark] class EventHubsSource(
   private var fetchedHighestOffsetsAndSeqNums: EventHubsOffset = _
 
   override def schema: StructType = {
-    val containsProperties = parameters.getOrElse("eventhubs.sql.containsProperties",
-      "false").toBoolean
-    EventHubsSourceProvider.sourceSchema(containsProperties)
+    EventHubsSourceProvider.sourceSchema(parameters)
   }
 
   private[spark] def composeHighestOffset(retryIfFail: Boolean) = {
@@ -190,13 +190,27 @@ private[spark] class EventHubsSource(
 
   private def convertEventHubsRDDToDataFrame(eventHubsRDD: EventHubsRDD): DataFrame = {
     import scala.collection.JavaConverters._
+    val (containsProperties, userDefinedKeys) =
+      EventHubsSourceProvider.ifContainsPropertiesAndUserDefinedKeys(parameters)
     val rowRDD = eventHubsRDD.map(eventData =>
       Row.fromSeq(Seq(eventData.getBody, eventData.getSystemProperties.getOffset.toLong,
         eventData.getSystemProperties.getSequenceNumber,
         eventData.getSystemProperties.getEnqueuedTime.getEpochSecond,
         eventData.getSystemProperties.getPublisher,
         eventData.getSystemProperties.getPartitionKey
-      ) ++ Seq(eventData.getProperties.asScala.map { case (k, v) => k -> v.toString })
+      ) ++ {
+        if (containsProperties) {
+          if (userDefinedKeys.nonEmpty) {
+            userDefinedKeys.map(k => {
+              eventData.getProperties.asScala.getOrElse(k, "").toString
+            })
+          } else {
+            Seq(eventData.getProperties.asScala.map { case (k, v) => k -> v.toString })
+          }
+        } else {
+          Seq()
+        }
+      }
     ))
     sqlContext.createDataFrame(rowRDD, schema)
   }
