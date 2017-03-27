@@ -40,7 +40,50 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
 class EventHubsSourceSuite extends EventHubsSourceTest {
 
-  testWithUninterruptibleThread("Verify expected offsets are correct") {
+  testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
+    " is less than the available data") {
+
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> s"2"
+    )
+
+    val eventPayloadsAndProperties = Seq(
+      1 -> Seq("propertyA" -> "a", "propertyB" -> "b", "propertyC" -> "c", "propertyD" -> "d",
+        "propertyE" -> "e", "propertyF" -> "f"),
+      0 -> Seq("propertyG" -> "g", "propertyH" -> "h", "propertyI" -> "i", "propertyJ" -> "j",
+        "propertyK" -> "k"),
+      3 -> Seq("propertyM" -> "m", "propertyN" -> "n", "propertyO" -> "o", "propertyP" -> "p"),
+      9 -> Seq("propertyQ" -> "q", "propertyR" -> "r", "propertyS" -> "s"),
+      5 -> Seq("propertyT" -> "t", "propertyU" -> "u"),
+      7 -> Seq("propertyV" -> "v")
+    )
+
+    val eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
+      eventPayloadsAndProperties)
+
+    val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
+
+    val eventHubsSource = new EventHubsSource(spark.sqlContext, eventHubsParameters,
+      (eventHubsParams: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
+        new TestEventHubsReceiver(eventHubsParams, eventHubs, partitionId, startOffset),
+      (_: String, _: Map[String, Map[String, String]]) =>
+        new TestRestEventHubClient(highestOffsetPerPartition))
+
+    val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
+
+    assert(offset.batchId == 0)
+    offset.targetSeqNums.values.foreach(x => assert(x == 1))
+  }
+
+  testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
+    " is more than the available data") {
 
     val eventHubsParameters = Map[String, String](
       "eventhubs.policyname" -> "policyName",
@@ -81,8 +124,55 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     offset.targetSeqNums.values.foreach(x => assert(x == 2))
   }
 
+  testWithUninterruptibleThread("Verify expected dataframe size is correct" +
+    " when the rate is less than the available data") {
 
-  testWithUninterruptibleThread("Verify expected dataframe size is correct") {
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> s"2"
+    )
+
+    val eventPayloadsAndProperties = Seq(
+      1 -> Seq("propertyA" -> "a", "propertyB" -> "b", "propertyC" -> "c", "propertyD" -> "d",
+        "propertyE" -> "e", "propertyF" -> "f"),
+      0 -> Seq("propertyG" -> "g", "propertyH" -> "h", "propertyI" -> "i", "propertyJ" -> "j",
+        "propertyK" -> "k"),
+      3 -> Seq("propertyM" -> "m", "propertyN" -> "n", "propertyO" -> "o", "propertyP" -> "p"),
+      9 -> Seq("propertyQ" -> "q", "propertyR" -> "r", "propertyS" -> "s"),
+      5 -> Seq("propertyT" -> "t", "propertyU" -> "u"),
+      7 -> Seq("propertyV" -> "v")
+    )
+
+    val eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
+      eventPayloadsAndProperties)
+
+    val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
+
+    val eventHubsSource = new EventHubsSource(spark.sqlContext, eventHubsParameters,
+      (eventHubsParams: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
+        new TestEventHubsReceiver(eventHubsParams, eventHubs, partitionId, startOffset),
+      (_: String, _: Map[String, Map[String, String]]) =>
+        new TestRestEventHubClient(highestOffsetPerPartition))
+
+    val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
+
+    val dataFrame = eventHubsSource.getBatch(None, offset)
+
+    assert(dataFrame.schema == eventHubsSource.schema)
+
+    eventHubsSource.commit(offset)
+
+    assert(dataFrame.select("body").count == 4)
+  }
+
+  testWithUninterruptibleThread("Verify expected dataframe size is correct" +
+    " when the rate is more than the available data") {
 
     val eventHubsParameters = Map[String, String](
       "eventhubs.policyname" -> "policyName",
@@ -128,7 +218,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     assert(dataFrame.select("body").count == 6)
   }
 
-
+  /*
   testWithUninterruptibleThread("Verify user-defined keys show up in dataframe schema") {
 
     val eventHubsParameters = Map[String, String](
@@ -175,4 +265,5 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
 
     assert(dataFrame.select("body").count == 6)
   }
+  */
 }
