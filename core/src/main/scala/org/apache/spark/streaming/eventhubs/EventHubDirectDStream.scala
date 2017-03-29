@@ -25,7 +25,6 @@ import com.microsoft.azure.eventhubs.EventData
 
 import org.apache.spark.eventhubscommon._
 import org.apache.spark.eventhubscommon.client.{EventHubClient, EventHubsClientWrapper, RestfulEventHubClient}
-import org.apache.spark.eventhubscommon.progress.ProgressTrackerBase
 import org.apache.spark.eventhubscommon.rdd.{EventHubsRDD, OffsetRange, OffsetStoreParams}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
@@ -66,7 +65,7 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
 
   protected[streaming] override val checkpointData = new EventHubDirectDStreamCheckpointData(this)
 
-  private val eventhubNameAndPartitions = {
+  private[eventhubs] val eventhubNameAndPartitions = {
     for (eventHubName <- eventhubsParams.keySet;
          partitionId <- 0 until eventhubsParams(eventHubName)(
       "eventhubs.partition.count").toInt) yield EventHubNameAndPartition(eventHubName, partitionId)
@@ -254,7 +253,17 @@ private[eventhubs] class EventHubDirectDStream private[eventhubs] (
     currentOffsetsAndSeqNums.offsets.equals(fetchedHighestOffsetsAndSeqNums.offsets)
 
   private[spark] def composeHighestOffset(validTime: Time, retryIfFail: Boolean) = {
-    RateControlUtils.fetchLatestOffset(eventHubClient, retryIfFail = retryIfFail) match {
+
+    RateControlUtils.fetchLatestOffset(
+      eventHubClient,
+      retryIfFail,
+      if (fetchedHighestOffsetsAndSeqNums == null) {
+        null
+      } else {
+        fetchedHighestOffsetsAndSeqNums.offsets
+      },
+      currentOffsetsAndSeqNums.offsets) match {
+
       case Some(highestOffsets) =>
         fetchedHighestOffsetsAndSeqNums = OffsetRecord(validTime, highestOffsets)
         Some(fetchedHighestOffsetsAndSeqNums.offsets)

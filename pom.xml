@@ -86,7 +86,7 @@
           <plugin>
             <groupId>com.github.github</groupId>
             <artifactId>site-maven-plugin</artifactId>
-            <version>0.11</version>
+            <version>0.12</version>
             <configuration>
               <message>Maven artifacts for ${project.version}</message>
               <noJekyll>true</noJekyll>
@@ -126,6 +126,12 @@
           <value>true</value>
         </property>
       </activation>
+      <distributionManagement>
+        <snapshotRepository>
+          <id>ossrh</id>
+          <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+      </distributionManagement>
       <build>
         <plugins>
           <plugin>
@@ -190,7 +196,7 @@
     <dependency>
       <groupId>com.microsoft.azure</groupId>
       <artifactId>azure-eventhubs</artifactId>
-      <version>0.11.0</version>
+      <version>0.13.0</version>
     </dependency>
     <dependency>
       <groupId>org.scalaj</groupId>
@@ -296,12 +302,6 @@
       <version>1.0.6</version>
     </dependency>
   </dependencies>
-  <distributionManagement>
-      <snapshotRepository>
-        <id>ossrh</id>
-        <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-      </snapshotRepository>
-  </distributionManagement>
   <build>
     <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
     <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
@@ -407,6 +407,7 @@
               <artifactSet>
                 <includes>
                   <include>com.microsoft.azure</include>
+                  <include>org.scalaj</include>
                   <include>org.apache.qpid</include>
                   <include>org.bouncycastle</include>
                 </includes>

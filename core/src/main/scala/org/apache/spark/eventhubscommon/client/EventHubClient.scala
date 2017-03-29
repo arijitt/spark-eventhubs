@@ -25,7 +25,10 @@ private[spark] trait EventHubClient extends Serializable {
    * return the end point of each partition
    * @return a map from eventhubName-partition to (offset, seq)
    */
-  def endPointOfPartition(retryIfFail: Boolean): Option[Map[EventHubNameAndPartition, (Long, Long)]]
+  def endPointOfPartition(
+      retryIfFail: Boolean,
+      targetEventHubNameAndPartitions: List[EventHubNameAndPartition] = List()):
+    Option[Map[EventHubNameAndPartition, (Long, Long)]]
 
   /**
    * close this client
