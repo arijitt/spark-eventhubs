@@ -28,16 +28,13 @@ import org.apache.spark.sql.execution.streaming.{Offset, SerializedOffset, Sourc
 import org.apache.spark.sql.streaming.eventhubs.checkpoint.StructuredStreamingProgressTracker
 import org.apache.spark.sql.types._
 
-private[spark]
-class EventHubsSource(
-                       sqlContext: SQLContext,
-                       parameters: Map[String, String],
-                       eventhubReceiverCreator:
-                       (Map[String, String], Int, Long, Int) => EventHubsClientWrapper =
-                       EventHubsClientWrapper.getEventHubReceiver,
-                       eventhubClientCreator:
-                       (String, Map[String, Map[String, String]]) => EventHubClient =
-                       RestfulEventHubClient.getInstance)
+private[spark] class EventHubsSource(
+         sqlContext: SQLContext,
+         parameters: Map[String, String],
+         eventhubReceiverCreator: (Map[String, String], Int, Long, Int) => EventHubsClientWrapper =
+         EventHubsClientWrapper.getEventHubReceiver,
+         eventhubClientCreator: (String, Map[String, Map[String, String]]) => EventHubClient =
+         RestfulEventHubClient.getInstance)
   extends Source with EventHubsConnector with Logging {
 
   case class EventHubsOffset(batchId: Long, offsets: Map[EventHubNameAndPartition, (Long, Long)])

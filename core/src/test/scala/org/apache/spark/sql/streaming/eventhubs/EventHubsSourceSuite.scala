@@ -322,7 +322,6 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
         new TestRestEventHubClient(highestOffsetPerPartition))
 
     // First batch
-
     var offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
 
     var dataFrame = eventHubsSource.getBatch(None, offset)
@@ -334,7 +333,6 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     assert(dataFrame.select("body").count == 6)
 
     // Second batch
-
     offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
 
     dataFrame = eventHubsSource.getBatch(None, offset)

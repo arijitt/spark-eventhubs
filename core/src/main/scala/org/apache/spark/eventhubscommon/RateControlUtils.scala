@@ -49,14 +49,10 @@ private[spark] object RateControlUtils extends Logging {
     * received in this micro batch
     * @param highestEndpoints the latest offset/seq of each partition
     */
-  private def
-  defaultRateControl(
-                      currentOffsetsAndSeqNums:
-                      Map[EventHubNameAndPartition, (Long, Long)],
-                      highestEndpoints:
-                      Map[EventHubNameAndPartition, (Long, Long)],
-                      eventhubsParams: Map[String, _]):
-  Map[EventHubNameAndPartition, Long] = {
+  private def defaultRateControl(
+                      currentOffsetsAndSeqNums: Map[EventHubNameAndPartition, (Long, Long)],
+                      highestEndpoints: Map[EventHubNameAndPartition, (Long, Long)],
+                      eventhubsParams: Map[String, _]): Map[EventHubNameAndPartition, Long] = {
     highestEndpoints.map{
       case (eventHubNameAndPar, (_, latestSeq)) =>
         val maximumAllowedMessageCnt = maxRateLimitPerPartition(
