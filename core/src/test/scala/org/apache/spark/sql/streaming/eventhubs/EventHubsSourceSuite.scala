@@ -51,13 +51,12 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
       }
       */
 
-      /*
       val sources = query.get.logicalPlan.collect {
         case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
           source.asInstanceOf[EventHubsSource]
       }
-      */
 
+      /*
       val eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
         eventPayloadsAndProperties)
 
@@ -72,6 +71,7 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
             (_: String, _: Map[String, Map[String, String]]) =>
               new TestRestEventHubClient(highestOffsetPerPartition))
       }
+      */
 
       if (sources.isEmpty) {
         throw new Exception(
@@ -84,33 +84,20 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
       val eventHubsSource = sources.head
 
-      /*
-      var eventHubs: SimulatedEventHubs = null
-
-      if (eventHubsSource.eventHubsReceiver.isInstanceOf[SimulatedEventHubs]) {
-
-        eventHubs = eventHubsSource.eventHubsReceiver.asInstanceOf[SimulatedEventHubs]
-
-        eventHubs = EventHubsTestUtilities
-          .addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
-
-      } else {
-
-        eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
-          eventPayloadsAndProperties)
-      }
+      var eventHubs: SimulatedEventHubs = EventHubsTestUtilities
+        .simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
 
       val highestOffsetPerPartition = EventHubsTestUtilities
         .getHighestOffsetPerPartition(eventHubs)
 
-      eventHubsSource = eventHubsSource
-        .setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
+      eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
 
-      eventHubsSource = eventHubsSource
-        .setEventHubsReceiver((eventHubsParameters: Map[String, String],
-                               partitionId: Int, startOffset: Long, _: Int) =>
-          new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset))
-      */
+      eventHubsSource.setEventHubsReceiver((eventHubsParameters: Map[String, String],
+                                            partitionId: Int, startOffset: Long, _: Int) =>
+        new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset))
+
+      eventHubs = EventHubsTestUtilities
+        .addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
 
       val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
 
@@ -161,7 +148,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(1)),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
       CheckAnswer(2, 1, 4, 10, 6, 8)
     )
