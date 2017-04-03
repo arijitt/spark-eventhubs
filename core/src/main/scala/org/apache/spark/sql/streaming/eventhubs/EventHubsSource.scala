@@ -84,10 +84,9 @@ private[spark] class EventHubsSource(
     this
   }
 
-  private[eventhubs]
-  def setEventHubsReceiver(
-                            eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
-                              => EventHubsClientWrapper): EventHubsSource = {
+  private[eventhubs] def setEventHubsReceiver(
+      eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
+        => EventHubsClientWrapper): EventHubsSource = {
     _eventHubsReceiver = eventhubReceiverCreator
     this
   }
