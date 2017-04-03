@@ -99,7 +99,7 @@ object EventHubsTestUtilities extends Logging {
     }.toMap
   }
 
-  private def generateEventData[T: ClassTag, U: ClassTag](
+  private def generateEventData[T, U](
       payloadPropertyBag: Seq[(T, Seq[U])],
       partitionId: Int): Array[EventData] = {
 
