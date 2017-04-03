@@ -47,11 +47,21 @@ private[spark] class EventHubsSource(
 
   private var _eventHubsClient: EventHubClient = _
 
+  private var _eventHubsReceiver: (Map[String, String], Int, Long, Int)
+    => EventHubsClientWrapper = _
+
   private[eventhubs] def eventHubClient = {
     if (_eventHubsClient == null) {
       _eventHubsClient = eventhubClientCreator(eventHubsNamespace, Map(eventHubsName -> parameters))
     }
     _eventHubsClient
+  }
+
+  private[eventhubs] def eventHubsReceiver = {
+    if (_eventHubsReceiver == null) {
+      _eventHubsReceiver = eventhubReceiverCreator
+    }
+    _eventHubsReceiver
   }
 
   private val ehNameAndPartitions = {
@@ -71,6 +81,14 @@ private[spark] class EventHubsSource(
 
   private[eventhubs] def setEventHubClient(eventHubClient: EventHubClient): EventHubsSource = {
     _eventHubsClient = eventHubClient
+    this
+  }
+
+  private[eventhubs]
+  def setEventHubsReceiver(
+                            eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
+                              => EventHubsClientWrapper): EventHubsSource = {
+    _eventHubsReceiver = eventhubReceiverCreator
     this
   }
 
@@ -184,7 +202,7 @@ private[spark] class EventHubsSource(
       committedOffsetsAndSeqNums.batchId + 1,
       OffsetStoreParams(parameters("eventhubs.progressTrackingDir"),
         streamId, uid = uid, subDirs = sqlContext.sparkContext.appName, uid),
-      eventhubReceiverCreator
+      eventHubsReceiver
     )
   }
 
