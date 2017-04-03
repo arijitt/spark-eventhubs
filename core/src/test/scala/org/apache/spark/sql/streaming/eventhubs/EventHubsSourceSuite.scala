@@ -39,15 +39,13 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
   override val streamingTimeout: org.scalatest.time.Span = 30.seconds
 
-  case class AddEventHubsData
-  [T: ClassTag, U: ClassTag](eventHubsParameters: Map[String, String],
-                             eventPayloadsAndProperties: Seq[(T, Seq[U])])
-    extends AddData {
+  case class AddEventHubsData[T: ClassTag, U: ClassTag](
+      eventHubsParameters: Map[String, String],
+      eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends AddData {
 
     override def addData(query: Option[StreamExecution]): (Source, Offset) = {
 
       if (query.get.isActive) {
-
         query.get.processAllAvailable()
       }
 
@@ -123,7 +121,7 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
 class EventHubsSourceSuite extends EventHubsSourceTest {
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved thtough" +
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved through" +
     "StreamingExecution") {
 
     import testImplicits._
