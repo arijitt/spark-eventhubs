@@ -45,9 +45,11 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
     override def addData(query: Option[StreamExecution]): (Source, Offset) = {
 
+      /*
       if (query.get.isActive) {
         query.get.processAllAvailable()
       }
+      */
 
       /*
       val sources = query.get.logicalPlan.collect {
