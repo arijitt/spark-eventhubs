@@ -29,8 +29,8 @@ class SimulatedEventHubs(
     eventHubsNamespace: String,
     initialData: Map[EventHubNameAndPartition, Array[EventData]]) extends Serializable {
 
-  var messageStore: Map[EventHubNameAndPartition, Array[EventData]] = initialData
-  val eventHubsNamedPartitions: Seq[EventHubNameAndPartition] = initialData.keys.toSeq
+  private[spark] var messageStore: Map[EventHubNameAndPartition, Array[EventData]] = initialData
+  private val eventHubsNamedPartitions: Seq[EventHubNameAndPartition] = initialData.keys.toSeq
 
   def search(eventHubsNamedPartition: EventHubNameAndPartition, eventOffset: Int, eventCount: Int):
       List[EventData] = {

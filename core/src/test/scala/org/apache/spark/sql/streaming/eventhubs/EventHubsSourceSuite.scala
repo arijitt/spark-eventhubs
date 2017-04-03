@@ -44,8 +44,8 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
       eventHubsParameters: Map[String, String],
       eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends AddData {
 
-    val eventHubs: SimulatedEventHubs = EventHubsTestUtilities.
-      simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
+    var eventHubs: SimulatedEventHubs = EventHubsTestUtilities.simulateEventHubs(
+      eventHubsParameters, eventPayloadsAndProperties)
 
     override def addData(query: Option[StreamExecution]): (Source, Offset) = {
 
@@ -64,22 +64,16 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
       }
 
       val eventHubsSource = sources.head
-
       val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
 
       eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
-
       eventHubsSource.setEventHubsReceiver(
         (eventHubsParameters: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
           new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset)
       )
-
       eventHubs = EventHubsTestUtilities.addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
-
       val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-
       logInfo(s"Added data, expected offset $offset")
-
       (eventHubsSource, offset)
     }
   }
