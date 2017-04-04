@@ -71,13 +71,10 @@ private[spark] object RateControlUtils extends Logging {
     defaultRateControl(currentOffsetsAndSeqNums, highestEndpoints, eventhubsParams)
   }
 
-  private def
-  collectPartitionsNeedingLargerProcessingRange(
-                                                 fetchedHighestOffsetsAndSeqNums:
-                                                 Map[EventHubNameAndPartition, (Long, Long)],
-                                                 currentOffsetsAndSeqNums:
-                                                 Map[EventHubNameAndPartition, (Long, Long)]):
-  List[EventHubNameAndPartition] = {
+  private def collectPartitionsNeedingLargerProcessingRange(
+      fetchedHighestOffsetsAndSeqNums: Map[EventHubNameAndPartition, (Long, Long)],
+      currentOffsetsAndSeqNums: Map[EventHubNameAndPartition, (Long, Long)]):
+    List[EventHubNameAndPartition] = {
     val partitionList = new ListBuffer[EventHubNameAndPartition]
     if (fetchedHighestOffsetsAndSeqNums != null) {
       for ((ehNameAndPartition, (offset, seqId)) <- fetchedHighestOffsetsAndSeqNums) {
@@ -92,15 +89,12 @@ private[spark] object RateControlUtils extends Logging {
     partitionList.toList
   }
 
-  private[spark]
-  def fetchLatestOffset(
-                         eventHubClient: EventHubClient,
-                         retryIfFail: Boolean,
-                         fetchedHighestOffsetsAndSeqNums:
-                         Map[EventHubNameAndPartition, (Long, Long)],
-                         currentOffsetsAndSeqNums:
-                         Map[EventHubNameAndPartition, (Long, Long)]):
-  Option[Map[EventHubNameAndPartition, (Long, Long)]] = {
+  private[spark] def fetchLatestOffset(
+      eventHubClient: EventHubClient,
+      retryIfFail: Boolean,
+      fetchedHighestOffsetsAndSeqNums: Map[EventHubNameAndPartition, (Long, Long)],
+      currentOffsetsAndSeqNums: Map[EventHubNameAndPartition, (Long, Long)]):
+    Option[Map[EventHubNameAndPartition, (Long, Long)]] = {
     // check if there is any eventhubs partition which potentially has newly arrived message (
     // the fetched highest message id is within the next batch's processing engine)
     val demandingEhNameAndPartitions = collectPartitionsNeedingLargerProcessingRange(

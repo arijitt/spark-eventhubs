@@ -18,7 +18,7 @@
 package org.apache.spark.sql.streaming.eventhubs
 
 import java.util.concurrent.atomic.AtomicInteger
-import org.apache.spark.eventhubscommon.{EventHubNameAndPartition, EventHubsConnector, RateControlUtils}
+import org.apache.spark.eventhubscommon.{EventHubsConnector, EventHubNameAndPartition, RateControlUtils}
 import org.apache.spark.eventhubscommon.client.{EventHubClient, EventHubsClientWrapper, RestfulEventHubClient}
 import org.apache.spark.eventhubscommon.rdd.{EventHubsRDD, OffsetRange, OffsetStoreParams}
 import org.apache.spark.internal.Logging
@@ -84,10 +84,9 @@ private[spark] class EventHubsSource(
     this
   }
 
-  private[eventhubs]
-  def setEventHubsReceiver(
-                            eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
-                              => EventHubsClientWrapper): EventHubsSource = {
+  private[eventhubs] def setEventHubsReceiver(
+      eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
+        => EventHubsClientWrapper): EventHubsSource = {
     _eventHubsReceiver = eventhubReceiverCreator
     this
   }

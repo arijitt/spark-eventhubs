@@ -19,9 +19,10 @@ package org.apache.spark.sql.streaming.eventhubs
 
 import java.util.Calendar
 
+import scala.reflect.ClassTag
+
 import org.scalatest.time.SpanSugar._
 
-import scala.reflect.ClassTag
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.streaming.{ProcessingTime, StreamTest}
@@ -39,41 +40,19 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
   override val streamingTimeout: org.scalatest.time.Span = 30.seconds
 
-  case class AddEventHubsData
-  [T: ClassTag, U: ClassTag](eventHubsParameters: Map[String, String],
-                             eventPayloadsAndProperties: Seq[(T, Seq[U])])
-    extends AddData {
+  case class AddEventHubsData[T: ClassTag, U: ClassTag](
+      eventHubsParameters: Map[String, String],
+      eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends AddData {
+
+    var eventHubs: SimulatedEventHubs = EventHubsTestUtilities.simulateEventHubs(
+      eventHubsParameters, eventPayloadsAndProperties)
 
     override def addData(query: Option[StreamExecution]): (Source, Offset) = {
-
-      /*
-      if (query.get.isActive) {
-
-        query.get.processAllAvailable()
-      }
-      */
 
       val sources = query.get.logicalPlan.collect {
         case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
           source.asInstanceOf[EventHubsSource]
       }
-
-      /*
-      val eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
-        eventPayloadsAndProperties)
-
-      val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
-
-      val sources = query.get.logicalPlan.collect {
-        case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
-
-          new EventHubsSource(spark.sqlContext, eventHubsParameters,
-            (eventHubsParams: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
-              new TestEventHubsReceiver(eventHubsParams, eventHubs, partitionId, startOffset),
-            (_: String, _: Map[String, Map[String, String]]) =>
-              new TestRestEventHubClient(highestOffsetPerPartition))
-      }
-      */
 
       if (sources.isEmpty) {
         throw new Exception(
@@ -85,26 +64,16 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
       }
 
       val eventHubsSource = sources.head
-
-      var eventHubs: SimulatedEventHubs = EventHubsTestUtilities
-        .simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
-
-      val highestOffsetPerPartition = EventHubsTestUtilities
-        .getHighestOffsetPerPartition(eventHubs)
+      val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
 
       eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
-
-      eventHubsSource.setEventHubsReceiver((eventHubsParameters: Map[String, String],
-                                            partitionId: Int, startOffset: Long, _: Int) =>
-        new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset))
-
-      eventHubs = EventHubsTestUtilities
-        .addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
-
+      eventHubsSource.setEventHubsReceiver(
+        (eventHubsParameters: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
+          new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset)
+      )
+      eventHubs = EventHubsTestUtilities.addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
       val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-
       logInfo(s"Added data, expected offset $offset")
-
       (eventHubsSource, offset)
     }
   }
@@ -112,7 +81,7 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
 
 class EventHubsSourceSuite extends EventHubsSourceTest {
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved thtough" +
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved through" +
     "StreamingExecution") {
 
     import testImplicits._
