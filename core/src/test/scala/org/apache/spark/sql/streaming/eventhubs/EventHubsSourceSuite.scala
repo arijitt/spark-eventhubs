@@ -20,15 +20,13 @@ package org.apache.spark.sql.streaming.eventhubs
 import java.util.Calendar
 
 import scala.reflect.ClassTag
-
 import org.scalatest.time.SpanSugar._
-
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.execution.streaming._
-import org.apache.spark.sql.streaming.{ProcessingTime, StreamTest}
+import org.apache.spark.sql.streaming.{EventHubsAddData, EventHubsStreamTest, ProcessingTime}
 import org.apache.spark.sql.test.SharedSQLContext
 
-abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
+abstract class EventHubsSourceTest extends EventHubsStreamTest with SharedSQLContext {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -39,49 +37,51 @@ abstract class EventHubsSourceTest extends StreamTest with SharedSQLContext {
   }
 
   override val streamingTimeout: org.scalatest.time.Span = 30.seconds
+}
 
-  case class AddEventHubsData[T: ClassTag, U: ClassTag](
-      eventHubsParameters: Map[String, String],
-      eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends AddData {
+case class AddEventHubsData[T: ClassTag, U: ClassTag](
+    eventHubsParameters: Map[String, String],
+    eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends EventHubsAddData {
 
-    var eventHubs: SimulatedEventHubs = EventHubsTestUtilities.simulateEventHubs(
-      eventHubsParameters, eventPayloadsAndProperties)
+  var eventHubs: SimulatedEventHubs = EventHubsTestUtilities.simulateEventHubs(
+    eventHubsParameters, eventPayloadsAndProperties)
 
-    override def addData(query: Option[StreamExecution]): (Source, Offset) = {
+  override def addData(query: Option[StreamExecution]): (Source, Offset) = {
 
-      val sources = query.get.logicalPlan.collect {
-        case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
-          source.asInstanceOf[EventHubsSource]
-      }
-
-      if (sources.isEmpty) {
-        throw new Exception(
-          "Could not find EventHubs source in the StreamExecution logical plan to add data to")
-      } else if (sources.size > 1) {
-        throw new Exception(
-          "Could not select the EventHubs source in the StreamExecution logical plan as there" +
-            "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
-      }
-
-      val eventHubsSource = sources.head
-      val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
-
-      eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
-      eventHubsSource.setEventHubsReceiver(
-        (eventHubsParameters: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
-          new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset)
-      )
-      eventHubs = EventHubsTestUtilities.addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
-      val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-      logInfo(s"Added data, expected offset $offset")
-      (eventHubsSource, offset)
+    val sources = query.get.logicalPlan.collect {
+      case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
+        source.asInstanceOf[EventHubsSource]
     }
+
+    if (sources.isEmpty) {
+      throw new Exception(
+        "Could not find EventHubs source in the StreamExecution logical plan to add data to")
+    } else if (sources.size > 1) {
+      throw new Exception(
+        "Could not select the EventHubs source in the StreamExecution logical plan as there" +
+          "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
+    }
+
+    val eventHubsSource = sources.head
+    val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
+
+    eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
+    eventHubsSource.setEventHubsReceiver(
+      (eventHubsParameters: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
+        new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset)
+    )
+
+    EventHubsTestUtilities.addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
+
+    val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
+
+    (eventHubsSource, offset)
   }
 }
 
 class EventHubsSourceSuite extends EventHubsSourceTest {
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved through" +
+  test("Verify expected dataframe can be retrieved through" +
     "StreamingExecution") {
 
     import testImplicits._
@@ -94,7 +94,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
       "eventhubs.partition.count" -> "2",
       "eventhubs.consumergroup" -> "$Default",
       "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"10"
+      "eventhubs.maxRate" -> s"3"
     )
 
     val eventPayloadsAndProperties = Seq(
@@ -121,7 +121,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     testStream(sourceQuery)(
       StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
-      CheckAnswer(2, 1, 4, 10, 6, 8)
+      CheckAnswer(2, 4, 6, 1, 10, 8)
     )
 
     println()
