@@ -79,12 +79,12 @@ private[spark] class EventHubsSource(
     uid, parameters("eventhubs.progressTrackingDir"), sqlContext.sparkContext.appName,
     sqlContext.sparkContext.hadoopConfiguration)
 
-  private[eventhubs] def setEventHubClient(eventHubClient: EventHubClient): EventHubsSource = {
+  private[spark] def setEventHubClient(eventHubClient: EventHubClient): EventHubsSource = {
     _eventHubsClient = eventHubClient
     this
   }
 
-  private[eventhubs] def setEventHubsReceiver(
+  private[spark] def setEventHubsReceiver(
       eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
         => EventHubsClientWrapper): EventHubsSource = {
     _eventHubsReceiver = eventhubReceiverCreator

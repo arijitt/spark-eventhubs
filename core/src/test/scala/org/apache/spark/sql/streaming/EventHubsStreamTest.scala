@@ -19,13 +19,14 @@ package org.apache.spark.sql.streaming
 
 import java.lang.Thread.UncaughtExceptionHandler
 
+import org.apache.spark.eventhubscommon.utils.{EventHubsTestUtilities, SimulatedEventHubs, TestEventHubsReceiver, TestRestEventHubClient}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.util.Random
 import scala.util.control.NonFatal
-
 import org.scalatest.Assertions
 import org.scalatest.concurrent.{Eventually, Timeouts}
 import org.scalatest.concurrent.Eventually._
@@ -33,13 +34,13 @@ import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.exceptions.TestFailedDueToTimeoutException
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-
 import org.apache.spark.sql.{Dataset, Encoder, QueryTest, Row}
-import org.apache.spark.sql.catalyst.encoders.{encoderFor, ExpressionEncoder, RowEncoder}
+import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder, encoderFor}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.streaming.StreamingQueryListener._
+import org.apache.spark.sql.streaming.eventhubs.{EventHubsAddData, EventHubsSource, StreamAction}
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
 
@@ -138,10 +139,9 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
   case object StopStream extends StreamAction with StreamMustBeRunning
 
   /** Starts the stream, resuming if data has already been processed. It must not be running. */
-  case class StartStream(
-                          trigger: Trigger = ProcessingTime(0),
-                          triggerClock: Clock = new SystemClock,
-                          additionalConfs: Map[String, String] = Map.empty)
+  case class StartStream(trigger: Trigger = ProcessingTime(0),
+                         triggerClock: Clock = new SystemClock,
+                         additionalConfs: Map[String, String] = Map.empty)
     extends StreamAction
 
   /** Advance the trigger clock's time manually. */
@@ -204,9 +204,8 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
     * Note that if the stream is not explicitly started before an action that requires it to be
     * running then it will be automatically started before performing any other actions.
     */
-  def testStream(
-                  _stream: Dataset[_],
-                  outputMode: OutputMode = OutputMode.Append)(actions: StreamAction*): Unit = {
+  def testStream(_stream: Dataset[_],
+                 outputMode: OutputMode = OutputMode.Append)(actions: StreamAction*): Unit = {
 
     val stream = _stream.toDF()
     val sparkSession = stream.sparkSession  // use the session in DF, not the default session
@@ -289,7 +288,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
         }
       }
       val c = Option(cause).map(exceptionToString(_))
-      val m = if (message != null && message.size > 0) Some(message) else None
+      val m = if (message != null && message.nonEmpty) Some(message) else None
       fail(
         s"""
            |${(m ++ c).mkString(": ")}
@@ -334,6 +333,36 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
                   trigger = trigger,
                   triggerClock = triggerClock)
                 .asInstanceOf[StreamExecution]
+
+            val sources = currentStream.logicalPlan.collect {
+              case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
+                source.asInstanceOf[EventHubsSource]
+            }
+
+            if (sources.isEmpty) {
+              throw new Exception("Could not find EventHubs source in the StreamExecution" +
+                " logical plan to add data to")
+            } else if (sources.size > 1) {
+              throw new Exception("Could not select the EventHubs source in the StreamExecution " +
+                "logical plan as there" +
+                  "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
+            }
+
+            val eventHubsSource = sources.head
+
+            val eventHubs : SimulatedEventHubs = EventHubsTestUtilities
+              .getOrSimulateEventHubs(null, null)
+
+            val highestOffsetPerPartition = EventHubsTestUtilities
+              .getHighestOffsetPerPartition(eventHubs)
+
+            eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
+            eventHubsSource.setEventHubsReceiver(
+              (eventHubsParameters: Map[String, String], partitionId: Int,
+               startOffset: Long, _: Int) => new TestEventHubsReceiver(eventHubsParameters,
+                eventHubs, partitionId, startOffset)
+            )
+
             currentStream.microBatchThread.setUncaughtExceptionHandler(
               new UncaughtExceptionHandler {
                 override def uncaughtException(t: Thread, e: Throwable): Unit = {
@@ -503,7 +532,6 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
     }
   }
 
-
   /**
     * Creates a stress test that randomly starts/stops/adds data/checks the result.
     *
@@ -512,10 +540,9 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
     *                as needed
     * @param iterations the iteration number
     */
-  def runStressTest(
-                     ds: Dataset[Int],
-                     addData: Seq[Int] => StreamAction,
-                     iterations: Int = 100): Unit = {
+  def runStressTest(ds: Dataset[Int],
+                    addData: Seq[Int] => StreamAction,
+                    iterations: Int = 100): Unit = {
     runStressTest(ds, Seq.empty, (data, running) => addData(data), iterations)
   }
 
@@ -528,11 +555,10 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
     *                as needed
     * @param iterations the iteration number
     */
-  def runStressTest(
-                     ds: Dataset[Int],
-                     prepareActions: Seq[StreamAction],
-                     addData: (Seq[Int], Boolean) => StreamAction,
-                     iterations: Int): Unit = {
+  def runStressTest(ds: Dataset[Int],
+                    prepareActions: Seq[StreamAction],
+                    addData: (Seq[Int], Boolean) => StreamAction,
+                    iterations: Int): Unit = {
     implicit val intEncoder = ExpressionEncoder[Int]()
     var dataPos = 0
     var running = true

@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.streaming
+package org.apache.spark.sql.streaming.eventhubs
 
-import org.apache.spark.sql.execution.streaming.{MemoryStream, Offset, Source, StreamExecution}
+import scala.reflect.ClassTag
+
+import org.apache.spark.eventhubscommon.utils.{EventHubsTestUtilities, SimulatedEventHubs}
+import org.apache.spark.sql.execution.streaming._
 
 /** A trait for actions that can be performed while testing a streaming DataFrame. */
 trait StreamAction
@@ -49,4 +52,45 @@ trait EventHubsAddData extends StreamAction with Serializable {
     * offset of added data.
     */
   def addData(query: Option[StreamExecution]): (Source, Offset)
+}
+
+case class AddEventHubsData[T: ClassTag, U: ClassTag](
+    eventHubsParameters: Map[String, String],
+    eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends EventHubsAddData {
+
+  override def addData(query: Option[StreamExecution]): (Source, Offset) = {
+
+    val sources = query.get.logicalPlan.collect {
+      case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
+        source.asInstanceOf[EventHubsSource]
+    }
+
+    val eventHubs: SimulatedEventHubs = EventHubsTestUtilities
+      .getOrSimulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
+
+    if (sources.isEmpty) {
+      throw new Exception(
+        "Could not find EventHubs source in the StreamExecution logical plan to add data to")
+    } else if (sources.size > 1) {
+      throw new Exception(
+        "Could not select the EventHubs source in the StreamExecution logical plan as there" +
+          "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
+    }
+
+    val eventHubsSource = sources.head
+
+    val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
+
+    // Determine the highest event hubs batch record
+
+    val highestSequenceNumber: Long = highestOffsetPerPartition.map(x => x._2._2).max
+    val ratePerBatch: Long = eventHubsParameters.getOrElse("eventhubs.maxRate", "1000").toLong
+    val highestBatchId: Long = if (highestSequenceNumber < ratePerBatch) 0
+    else math.ceil((highestSequenceNumber + 1)/ratePerBatch).toLong
+
+    val targetOffsetPerPartition = highestOffsetPerPartition.map(x => x._1 -> x._2._2)
+    val eventHubsBatchRecord = EventHubsBatchRecord(highestBatchId, targetOffsetPerPartition)
+
+    (eventHubsSource, eventHubsBatchRecord)
+  }
 }

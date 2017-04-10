@@ -33,8 +33,10 @@ import org.apache.spark.internal.Logging
 object EventHubsTestUtilities extends Logging {
 
   def simulateEventHubs[T, U](
-      eventHubsParameters: Map[String, String],
-      eventPayloadsAndProperties: Seq[(T, Seq[U])]): SimulatedEventHubs = {
+                               eventHubsParameters: Map[String, String],
+                               eventPayloadsAndProperties: Seq[(T, Seq[U])]): SimulatedEventHubs = {
+
+    assert(eventHubsParameters != null)
 
     // Round-robin allocation of payloads to partitions
 
@@ -49,7 +51,19 @@ object EventHubsTestUtilities extends Logging {
     val payloadPropertyStore = roundRobinAllocation(eventHubsPartitionList,
       eventPayloadsAndProperties)
 
-    new SimulatedEventHubs(eventHubsNamespace, payloadPropertyStore)
+    simulatedEventHubs = new SimulatedEventHubs(eventHubsNamespace, payloadPropertyStore)
+
+    simulatedEventHubs
+  }
+
+  def getOrSimulateEventHubs[T, U](
+    eventHubsParameters: Map[String, String],
+    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]): SimulatedEventHubs = {
+
+    if (simulatedEventHubs == null) simulatedEventHubs
+      = simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
+
+    simulatedEventHubs
   }
 
   def getHighestOffsetPerPartition(eventHubs: SimulatedEventHubs):
@@ -139,4 +153,6 @@ object EventHubsTestUtilities extends Logging {
 
     eventDataArray
   }
+
+  private var simulatedEventHubs: SimulatedEventHubs = _
 }
