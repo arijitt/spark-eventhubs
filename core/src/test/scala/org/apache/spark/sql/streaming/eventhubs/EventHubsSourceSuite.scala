@@ -21,6 +21,7 @@ import java.util.Calendar
 
 import scala.reflect.ClassTag
 import org.scalatest.time.SpanSugar._
+
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.streaming.{EventHubsAddData, EventHubsStreamTest, ProcessingTime}
@@ -63,6 +64,7 @@ case class AddEventHubsData[T: ClassTag, U: ClassTag](
     }
 
     val eventHubsSource = sources.head
+
     val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
 
     eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
@@ -71,62 +73,21 @@ case class AddEventHubsData[T: ClassTag, U: ClassTag](
         new TestEventHubsReceiver(eventHubsParameters, eventHubs, partitionId, startOffset)
     )
 
-    EventHubsTestUtilities.addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)
+    // Determine the highest event hubs batch record
 
-    val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
+    val highestSequenceNumber: Long = highestOffsetPerPartition.map(x => x._2._2).max
+    val ratePerBatch: Long = eventHubsParameters.getOrElse("eventhubs.maxRate", "1000").toLong
+    val highestBatchId: Long = if (highestSequenceNumber < ratePerBatch) 0
+    else math.ceil((highestSequenceNumber + 1)/ratePerBatch).toLong
 
-    (eventHubsSource, offset)
+    val targetOffsetPerPartition = highestOffsetPerPartition.map(x => x._1 -> x._2._2)
+    val eventHubsBatchRecord = EventHubsBatchRecord(highestBatchId, targetOffsetPerPartition)
+
+    (eventHubsSource, eventHubsBatchRecord)
   }
 }
 
 class EventHubsSourceSuite extends EventHubsSourceTest {
-
-  test("Verify expected dataframe can be retrieved through" +
-    "StreamingExecution") {
-
-    import testImplicits._
-
-    val eventHubsParameters = Map[String, String](
-      "eventhubs.policyname" -> "policyName",
-      "eventhubs.policykey" -> "policyKey",
-      "eventhubs.namespace" -> "ns1",
-      "eventhubs.name" -> "eh1",
-      "eventhubs.partition.count" -> "2",
-      "eventhubs.consumergroup" -> "$Default",
-      "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"3"
-    )
-
-    val eventPayloadsAndProperties = Seq(
-      1 -> Seq("propertyA" -> "a", "propertyB" -> "b", "propertyC" -> "c", "propertyD" -> "d",
-        "propertyE" -> "e", "propertyF" -> "f"),
-      0 -> Seq("propertyG" -> "g", "propertyH" -> "h", "propertyI" -> "i", "propertyJ" -> "j",
-        "propertyK" -> "k"),
-      3 -> Seq("propertyM" -> "m", "propertyN" -> "n", "propertyO" -> "o", "propertyP" -> "p"),
-      9 -> Seq("propertyQ" -> "q", "propertyR" -> "r", "propertyS" -> "s"),
-      5 -> Seq("propertyT" -> "t", "propertyU" -> "u"),
-      7 -> Seq("propertyV" -> "v")
-    )
-
-    val dataSource = spark
-      .readStream
-      .format("eventhubs")
-      .options(eventHubsParameters)
-      .load()
-      .selectExpr("CAST(body AS STRING)")
-      .as[(String)]
-
-    val sourceQuery = dataSource.map(x => x.toInt + 1)
-
-    testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0)),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
-      CheckAnswer(2, 4, 6, 1, 10, 8)
-    )
-
-    println()
-  }
-
 
   /*
   testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
@@ -640,4 +601,50 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     assert(outputArray.sorted.corresponds(inputArray.sorted) {_ == _})
   }
   */
+
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved through" +
+    "StreamingExecution") {
+
+    import testImplicits._
+
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> s"3"
+    )
+
+    val eventPayloadsAndProperties = Seq(
+      1 -> Seq("propertyA" -> "a", "propertyB" -> "b", "propertyC" -> "c", "propertyD" -> "d",
+        "propertyE" -> "e", "propertyF" -> "f"),
+      0 -> Seq("propertyG" -> "g", "propertyH" -> "h", "propertyI" -> "i", "propertyJ" -> "j",
+        "propertyK" -> "k"),
+      3 -> Seq("propertyM" -> "m", "propertyN" -> "n", "propertyO" -> "o", "propertyP" -> "p"),
+      9 -> Seq("propertyQ" -> "q", "propertyR" -> "r", "propertyS" -> "s"),
+      5 -> Seq("propertyT" -> "t", "propertyU" -> "u"),
+      7 -> Seq("propertyV" -> "v")
+    )
+
+    val dataSource = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery = dataSource.map(x => x.toInt + 1)
+
+    testStream(sourceQuery)(
+      StartStream(trigger = ProcessingTime(0)),
+      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
+      CheckAnswer(2, 4, 6, 1, 10, 8)
+    )
+
+    println()
+  }
 }

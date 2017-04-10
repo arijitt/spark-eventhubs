@@ -85,37 +85,10 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
     * been processed.
     */
 
-  /*
-  object AddData {
-    def apply[A](source: MemoryStream[A], data: A*): AddDataMemory[A] =
-      AddDataMemory(source, data)
-  }
-
-  /** A trait that can be extended when testing a source. */
-  trait AddData extends StreamAction with Serializable {
-    /**
-      * Called to adding the data to a source. It should find the source to add data to from
-      * the active query, and then return the source object the data was added, as well as the
-      * offset of added data.
-      */
-    def addData(query: Option[StreamExecution]): (Source, Offset)
-  }
-  */
-
   /** A trait that can be extended when testing a source. */
   trait ExternalAction extends StreamAction with Serializable {
     def runAction(): Unit
   }
-
-  /*
-  case class AddDataMemory[A](source: MemoryStream[A], data: Seq[A]) extends AddData {
-    override def toString: String = s"AddData to $source: ${data.mkString(",")}"
-
-    override def addData(query: Option[StreamExecution]): (Source, Offset) = {
-      (source, source.addData(data))
-    }
-  }
-  */
 
   /**
     * Checks to make sure that the current data stored in the sink matches the `expectedAnswer`.
@@ -177,7 +150,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
   /** Signals that a failure is expected and should not kill the test. */
   case class ExpectFailure[T <: Throwable : ClassTag]() extends StreamAction {
     val causeClass: Class[T] = implicitly[ClassTag[T]].runtimeClass.asInstanceOf[Class[T]]
-    override def toString(): String = s"ExpectFailure[${causeClass.getName}]"
+    override def toString: String = s"ExpectFailure[${causeClass.getName}]"
   }
 
   /** Assert that a body is true */
@@ -220,9 +193,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
       }
     }
 
-    def isStreamWaitingAt(time: Long): Boolean = synchronized {
-      waitStartTime == Some(time)
-    }
+    def isStreamWaitingAt(time: Long): Boolean = synchronized {waitStartTime == Some(time)}
   }
 
 

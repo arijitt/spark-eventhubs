@@ -29,6 +29,8 @@ class SimulatedEventHubs(
     eventHubsNamespace: String,
     initialData: Map[EventHubNameAndPartition, Array[EventData]]) extends Serializable {
 
+  assert(initialData != null)
+
   var messageStore: Map[EventHubNameAndPartition, Array[EventData]] = initialData
   val eventHubsNamedPartitions: Seq[EventHubNameAndPartition] = initialData.keys.toSeq
 
@@ -60,7 +62,7 @@ class TestEventHubsReceiver(
     startOffset: Long)
   extends EventHubsClientWrapper {
 
-  val eventHubName = eventHubParameters("eventhubs.name")
+  val eventHubName: String = eventHubParameters("eventhubs.name")
 
   override def receive(expectedEventNum: Int): Iterable[EventData] = {
     val eventHubName = eventHubParameters("eventhubs.name")

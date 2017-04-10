@@ -81,11 +81,7 @@ object EventHubsTestUtilities extends Logging {
       if (eventHubsPartitionList.length >= eventPayloadsAndProperties.length) {
         eventHubsPartitionList.zip(eventPayloadsAndProperties.map(x => Seq(x)))
       } else {
-        /*
-        eventPayloadsAndProperties.zipWithIndex
-          .map(x => (eventHubsPartitionList(x._2 % eventHubsPartitionList.length), x._1)).
-          groupBy(_._1).mapValues(z => z.map(_._2))
-          */
+
         eventPayloadsAndProperties.zipWithIndex
           .map(x => (eventHubsPartitionList(x._2 % eventHubsPartitionList.length), x._1)).
           groupBy(_._1).map{case (k, v) => (k, v.map(_._2))}
