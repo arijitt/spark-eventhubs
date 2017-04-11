@@ -321,6 +321,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
             })
 
             lastStream = currentStream
+
             currentStream =
               sparkSession
                 .streams
@@ -350,8 +351,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
 
             val eventHubsSource = sources.head
 
-            val eventHubs : SimulatedEventHubs = EventHubsTestUtilities
-              .getOrSimulateEventHubs(null, null)
+            val eventHubs : SimulatedEventHubs = EventHubsTestUtilities.getOrSimulateEventHubs()
 
             val highestOffsetPerPartition = EventHubsTestUtilities
               .getHighestOffsetPerPartition(eventHubs)

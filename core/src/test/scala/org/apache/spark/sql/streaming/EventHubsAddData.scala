@@ -56,7 +56,8 @@ trait EventHubsAddData extends StreamAction with Serializable {
 
 case class AddEventHubsData[T: ClassTag, U: ClassTag](
     eventHubsParameters: Map[String, String],
-    eventPayloadsAndProperties: Seq[(T, Seq[U])]) extends EventHubsAddData {
+    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])])
+  extends EventHubsAddData {
 
   override def addData(query: Option[StreamExecution]): (Source, Offset) = {
 
@@ -64,9 +65,6 @@ case class AddEventHubsData[T: ClassTag, U: ClassTag](
       case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
         source.asInstanceOf[EventHubsSource]
     }
-
-    val eventHubs: SimulatedEventHubs = EventHubsTestUtilities
-      .getOrSimulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
 
     if (sources.isEmpty) {
       throw new Exception(
@@ -78,6 +76,12 @@ case class AddEventHubsData[T: ClassTag, U: ClassTag](
     }
 
     val eventHubsSource = sources.head
+
+    val eventHubs: SimulatedEventHubs = EventHubsTestUtilities
+      .getOrSimulateEventHubs(eventHubsParameters)
+
+    EventHubsTestUtilities.addEventsToEventHubs(eventHubs,
+      eventPayloadsAndProperties = eventPayloadsAndProperties)
 
     val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
 
