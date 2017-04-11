@@ -18,8 +18,7 @@
 package org.apache.spark.sql.streaming
 
 import java.lang.Thread.UncaughtExceptionHandler
-
-import org.apache.spark.eventhubscommon.utils.{EventHubsTestUtilities, SimulatedEventHubs, TestEventHubsReceiver, TestRestEventHubClient}
+import java.util.UUID
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -27,6 +26,8 @@ import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.util.Random
 import scala.util.control.NonFatal
+
+import org.mockito.internal.util.reflection.Whitebox
 import org.scalatest.Assertions
 import org.scalatest.concurrent.{Eventually, Timeouts}
 import org.scalatest.concurrent.Eventually._
@@ -34,14 +35,16 @@ import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.exceptions.TestFailedDueToTimeoutException
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
+
+import org.apache.spark.DebugFilesystem
+import org.apache.spark.eventhubscommon.utils.{EventHubsTestUtilities, TestEventHubsReceiver, TestRestEventHubClient}
 import org.apache.spark.sql.{Dataset, Encoder, QueryTest, Row}
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder, encoderFor}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
 import org.apache.spark.sql.execution.streaming._
-import org.apache.spark.sql.streaming.StreamingQueryListener._
 import org.apache.spark.sql.streaming.eventhubs.{EventHubsAddData, EventHubsSource, StreamAction}
-import org.apache.spark.sql.test.SharedSQLContext
+import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
 import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
 
 /**
@@ -70,6 +73,13 @@ import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
   */
 
 trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts with Serializable {
+
+
+  override protected def createSparkSession: TestSparkSession = {
+    new TestSparkSession(
+      sparkConf.set("spark.hadoop.fs.file.impl", classOf[DebugFilesystem].getName).setAppName(
+        s"EventHubsStreamTest_${System.currentTimeMillis()}"))
+  }
 
   /** How long to wait for an active stream to catch up when checking a result. */
   val streamingTimeout = 30.seconds
@@ -321,19 +331,29 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
             })
 
             lastStream = currentStream
+            val createQueryMethod = sparkSession.streams.getClass.getDeclaredMethods.filter(m =>
+              m.getName == "createQuery").head
+            createQueryMethod.setAccessible(true)
+            currentStream = createQueryMethod.invoke(
+              sparkSession.streams,
+              None,
+              Some(metadataRoot),
+              stream,
+              sink,
+              outputMode,
+              Boolean.box(false),
+              Boolean.box(true),
+              trigger,
+              triggerClock).asInstanceOf[StreamExecution]
 
-            currentStream =
-              sparkSession
-                .streams
-                .startQuery(
-                  None,
-                  Some(metadataRoot),
-                  stream,
-                  sink,
-                  outputMode,
-                  trigger = trigger,
-                  triggerClock = triggerClock)
-                .asInstanceOf[StreamExecution]
+            println(sparkSession.streams.getClass.getDeclaredFields.toList.map(_.getName))
+            val activeQueriesField = sparkSession.streams.getClass.getDeclaredFields.filter(f =>
+              f.getName == "org$apache$spark$sql$streaming$StreamingQueryManager$$activeQueries").
+              head
+            activeQueriesField.setAccessible(true)
+            val activeQueries = activeQueriesField.get(sparkSession.streams).
+              asInstanceOf[mutable.HashMap[UUID, StreamingQuery]]
+            activeQueries += currentStream.id -> currentStream
 
             val sources = currentStream.logicalPlan.collect {
               case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
@@ -346,13 +366,11 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
             } else if (sources.size > 1) {
               throw new Exception("Could not select the EventHubs source in the StreamExecution " +
                 "logical plan as there" +
-                  "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
+                "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
             }
 
             val eventHubsSource = sources.head
-
-            val eventHubs : SimulatedEventHubs = EventHubsTestUtilities.getOrSimulateEventHubs()
-
+            val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null, null)
             val highestOffsetPerPartition = EventHubsTestUtilities
               .getHighestOffsetPerPartition(eventHubs)
 
@@ -369,6 +387,8 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
                   streamDeathCause = e
                 }
               })
+
+            currentStream.start()
 
           case AdvanceManualClock(timeToAdd) =>
             verify(currentStream != null,
