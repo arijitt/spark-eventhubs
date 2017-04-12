@@ -33,10 +33,12 @@ import org.apache.spark.internal.Logging
 object EventHubsTestUtilities extends Logging {
 
   def simulateEventHubs[T, U](
-                               eventHubsParameters: Map[String, String],
-                               eventPayloadsAndProperties: Seq[(T, Seq[U])]): SimulatedEventHubs = {
+     eventHubsParameters: Map[String, String],
+     eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])])
+  : SimulatedEventHubs = {
 
     assert(eventHubsParameters != null)
+    assert(eventHubsParameters.nonEmpty)
 
     // Round-robin allocation of payloads to partitions
 
@@ -58,7 +60,8 @@ object EventHubsTestUtilities extends Logging {
 
   def getOrSimulateEventHubs[T, U](
     eventHubsParameters: Map[String, String],
-    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]): SimulatedEventHubs = {
+    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
+  SimulatedEventHubs = {
 
     if (simulatedEventHubs == null) simulatedEventHubs
       = simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
@@ -67,7 +70,7 @@ object EventHubsTestUtilities extends Logging {
   }
 
   def getHighestOffsetPerPartition(eventHubs: SimulatedEventHubs):
-    Map[EventHubNameAndPartition, (Long, Long)] = {
+  Map[EventHubNameAndPartition, (Long, Long)] = {
 
     eventHubs.messageStore.map {
       case (ehNameAndPartition, messageQueue) => (ehNameAndPartition,
@@ -76,8 +79,8 @@ object EventHubsTestUtilities extends Logging {
   }
 
   def addEventsToEventHubs[T, U](
-      eventHubs: SimulatedEventHubs,
-      eventPayloadsAndProperties: Seq[(T, Seq[U])]): SimulatedEventHubs = {
+     eventHubs: SimulatedEventHubs,
+     eventPayloadsAndProperties: Seq[(T, Seq[U])]): SimulatedEventHubs = {
     val eventHubsPartitionList = eventHubs.eventHubsNamedPartitions
     // Round-robin allocation of payloads to partitions
     val payloadPropertyStore = roundRobinAllocation(eventHubsPartitionList,
@@ -87,31 +90,38 @@ object EventHubsTestUtilities extends Logging {
   }
 
   private def roundRobinAllocation[T, U](
-      eventHubsPartitionList: Seq[EventHubNameAndPartition],
-      eventPayloadsAndProperties: Seq[(T, Seq[U])]):
-    Map[EventHubNameAndPartition, Array[EventData]] = {
+    eventHubsPartitionList: Seq[EventHubNameAndPartition],
+    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
+  Map[EventHubNameAndPartition, Array[EventData]] = {
 
-    val eventAllocation: Seq[(EventHubNameAndPartition, Seq[(T, Seq[U])])] = {
-      if (eventHubsPartitionList.length >= eventPayloadsAndProperties.length) {
-        eventHubsPartitionList.zip(eventPayloadsAndProperties.map(x => Seq(x)))
-      } else {
+    if (eventPayloadsAndProperties.isEmpty) {
 
-        eventPayloadsAndProperties.zipWithIndex
-          .map(x => (eventHubsPartitionList(x._2 % eventHubsPartitionList.length), x._1)).
-          groupBy(_._1).map{case (k, v) => (k, v.map(_._2))}
-      }.toSeq
+      eventHubsPartitionList.map(x => x -> Seq.empty[EventData].toArray).toMap
+
+    } else {
+
+      val eventAllocation: Seq[(EventHubNameAndPartition, Seq[(T, Seq[U])])] = {
+        if (eventHubsPartitionList.length >= eventPayloadsAndProperties.length) {
+          eventHubsPartitionList.zip(eventPayloadsAndProperties.map(x => Seq(x)))
+        } else {
+
+          eventPayloadsAndProperties.zipWithIndex
+            .map(x => (eventHubsPartitionList(x._2 % eventHubsPartitionList.length), x._1)).
+            groupBy(_._1).map { case (k, v) => (k, v.map(_._2)) }
+        }.toSeq
+      }
+
+      eventAllocation.map {
+        case (eventHubNameAndPartition, payloadPropertyBag) =>
+          (eventHubNameAndPartition,
+            generateEventData(payloadPropertyBag, eventHubNameAndPartition.partitionId))
+      }.toMap
     }
-
-    eventAllocation.map {
-      case (eventHubNameAndPartition, payloadPropertyBag) =>
-        (eventHubNameAndPartition,
-          generateEventData(payloadPropertyBag, eventHubNameAndPartition.partitionId))
-    }.toMap
   }
 
   private def generateEventData[T, U](
-      payloadPropertyBag: Seq[(T, Seq[U])],
-      partitionId: Int): Array[EventData] = {
+                                       payloadPropertyBag: Seq[(T, Seq[U])],
+                                       partitionId: Int): Array[EventData] = {
 
     var offsetSetInQueue = 0
 

@@ -48,29 +48,29 @@ import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
 import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
 
 /**
- * A framework for implementing tests for streaming queries and sources.
- *
- * A test consists of a set of steps (expressed as a `StreamAction`) that are executed in order,
- * blocking as necessary to let the stream catch up.  For example, the following adds some data to
- * a stream, blocking until it can verify that the correct values are eventually produced.
- *
- * {{{
- *  val inputData = MemoryStream[Int]
- *  val mapped = inputData.toDS().map(_ + 1)
- *
- *  testStream(mapped)(
- *    AddData(inputData, 1, 2, 3),
- *    CheckAnswer(2, 3, 4))
- * }}}
- *
- * Note that while we do sleep to allow the other thread to progress without spinning,
- * `StreamAction` checks should not depend on the amount of time spent sleeping.  Instead they
- * should check the actual progress of the stream before verifying the required test condition.
- *
- * Currently it is assumed that all streaming queries will eventually complete in 10 seconds to
- * avoid hanging forever in the case of failures. However, individual suites can change this
- * by overriding `streamingTimeout`.
- */
+  * A framework for implementing tests for streaming queries and sources.
+  *
+  * A test consists of a set of steps (expressed as a `StreamAction`) that are executed in order,
+  * blocking as necessary to let the stream catch up.  For example, the following adds some data to
+  * a stream, blocking until it can verify that the correct values are eventually produced.
+  *
+  * {{{
+  *  val inputData = MemoryStream[Int]
+  *  val mapped = inputData.toDS().map(_ + 1)
+  *
+  *  testStream(mapped)(
+  *    AddData(inputData, 1, 2, 3),
+  *    CheckAnswer(2, 3, 4))
+  * }}}
+  *
+  * Note that while we do sleep to allow the other thread to progress without spinning,
+  * `StreamAction` checks should not depend on the amount of time spent sleeping.  Instead they
+  * should check the actual progress of the stream before verifying the required test condition.
+  *
+  * Currently it is assumed that all streaming queries will eventually complete in 10 seconds to
+  * avoid hanging forever in the case of failures. However, individual suites can change this
+  * by overriding `streamingTimeout`.
+  */
 
 trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts with Serializable {
 
@@ -366,7 +366,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
             } else if (sources.size > 1) {
               throw new Exception("Could not select the EventHubs source in the StreamExecution " +
                 "logical plan as there" +
-                  "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
+                "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
             }
 
             val eventHubsSource = sources.head
