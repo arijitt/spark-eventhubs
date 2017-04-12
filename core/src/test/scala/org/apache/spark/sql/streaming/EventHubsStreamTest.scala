@@ -19,6 +19,7 @@ package org.apache.spark.sql.streaming
 
 import java.lang.Thread.UncaughtExceptionHandler
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -43,34 +44,34 @@ import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder, en
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
 import org.apache.spark.sql.execution.streaming._
-import org.apache.spark.sql.streaming.eventhubs.{EventHubsAddData, EventHubsSource, StreamAction}
+import org.apache.spark.sql.streaming.eventhubs.{EventHubsAddData, EventHubsBatchRecord, EventHubsSource, StreamAction}
 import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
 import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
 
 /**
-  * A framework for implementing tests for streaming queries and sources.
-  *
-  * A test consists of a set of steps (expressed as a `StreamAction`) that are executed in order,
-  * blocking as necessary to let the stream catch up.  For example, the following adds some data to
-  * a stream, blocking until it can verify that the correct values are eventually produced.
-  *
-  * {{{
-  *  val inputData = MemoryStream[Int]
-  *  val mapped = inputData.toDS().map(_ + 1)
-  *
-  *  testStream(mapped)(
-  *    AddData(inputData, 1, 2, 3),
-  *    CheckAnswer(2, 3, 4))
-  * }}}
-  *
-  * Note that while we do sleep to allow the other thread to progress without spinning,
-  * `StreamAction` checks should not depend on the amount of time spent sleeping.  Instead they
-  * should check the actual progress of the stream before verifying the required test condition.
-  *
-  * Currently it is assumed that all streaming queries will eventually complete in 10 seconds to
-  * avoid hanging forever in the case of failures. However, individual suites can change this
-  * by overriding `streamingTimeout`.
-  */
+ * A framework for implementing tests for streaming queries and sources.
+ *
+ * A test consists of a set of steps (expressed as a `StreamAction`) that are executed in order,
+ * blocking as necessary to let the stream catch up.  For example, the following adds some data to
+ * a stream, blocking until it can verify that the correct values are eventually produced.
+ *
+ * {{{
+ *  val inputData = MemoryStream[Int]
+ *  val mapped = inputData.toDS().map(_ + 1)
+ *
+ *  testStream(mapped)(
+ *    AddData(inputData, 1, 2, 3),
+ *    CheckAnswer(2, 3, 4))
+ * }}}
+ *
+ * Note that while we do sleep to allow the other thread to progress without spinning,
+ * `StreamAction` checks should not depend on the amount of time spent sleeping.  Instead they
+ * should check the actual progress of the stream before verifying the required test condition.
+ *
+ * Currently it is assumed that all streaming queries will eventually complete in 10 seconds to
+ * avoid hanging forever in the case of failures. However, individual suites can change this
+ * by overriding `streamingTimeout`.
+ */
 
 trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts with Serializable {
 
@@ -346,7 +347,6 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
               trigger,
               triggerClock).asInstanceOf[StreamExecution]
 
-            println(sparkSession.streams.getClass.getDeclaredFields.toList.map(_.getName))
             val activeQueriesField = sparkSession.streams.getClass.getDeclaredFields.filter(f =>
               f.getName == "org$apache$spark$sql$streaming$StreamingQueryManager$$activeQueries").
               head
@@ -371,9 +371,17 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
 
             val eventHubsSource = sources.head
             val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null, null)
-            val highestOffsetPerPartition = EventHubsTestUtilities
-              .getHighestOffsetPerPartition(eventHubs)
-
+            val highestOffsetPerPartition = {
+              if (!additionalConfs.contains("eventhubs.highestOffset")) {
+                EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
+              } else {
+                val capacity = additionalConfs("eventhubs.highestOffset").toLong
+                EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs).map{
+                  case (ehNameAndPartition, _) =>
+                    (ehNameAndPartition, (capacity, capacity))
+                }
+              }
+            }
             eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
             eventHubsSource.setEventHubsReceiver(
               (eventHubsParameters: Map[String, String], partitionId: Int,
@@ -497,6 +505,7 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
               }
 
               // Store the expected offset of added data to wait for it later
+              println(s"=====expected ${offset.asInstanceOf[EventHubsBatchRecord]}")
               awaiting.put(sourceIndex, offset)
             } catch {
               case NonFatal(e) =>
@@ -518,8 +527,15 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
 
             // Block until all data added has been processed for all the source
             awaiting.foreach { case (sourceIndex, offset) =>
-              failAfter(streamingTimeout) {
-                currentStream.awaitOffset(indexToSource(sourceIndex), offset)
+              try {
+                failAfter(streamingTimeout) {
+                  currentStream.awaitOffset(indexToSource(sourceIndex), offset)
+                }
+              } catch {
+                case e: Exception =>
+                  e.printStackTrace()
+                  println(currentStream.committedOffsets)
+                  throw e
               }
             }
 
@@ -641,12 +657,8 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
 
     private val DEFAULT_TEST_TIMEOUT = 1.second
 
-    def test(
-              expectedBehavior: ExpectedBehavior,
-              awaitTermFunc: () => Unit,
-              testTimeout: Span = DEFAULT_TEST_TIMEOUT
-            ): Unit = {
-
+    def test(expectedBehavior: ExpectedBehavior, awaitTermFunc: () => Unit,
+             testTimeout: Span = DEFAULT_TEST_TIMEOUT): Unit = {
       expectedBehavior match {
         case ExpectNotBlocked =>
           withClue("Got blocked when expected non-blocking.") {
@@ -654,7 +666,6 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
               awaitTermFunc()
             }
           }
-
         case ExpectBlocked =>
           withClue("Was not blocked when expected.") {
             intercept[TestFailedDueToTimeoutException] {
@@ -663,7 +674,6 @@ trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts 
               }
             }
           }
-
         case e: ExpectException[_] =>
           val thrownException =
             withClue(s"Did not throw ${e.t.runtimeClass.getSimpleName} when expected.") {
