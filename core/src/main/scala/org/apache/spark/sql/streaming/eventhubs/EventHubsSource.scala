@@ -42,6 +42,9 @@ private[spark] class EventHubsSource(
 
   case class EventHubsOffset(batchId: Long, offsets: Map[EventHubNameAndPartition, (Long, Long)])
 
+  // the id of the stream which is mapped from eventhubs instance
+  override val streamId: Int = EventHubsSource.streamIdGenerator.getAndIncrement()
+
   private val eventHubsNamespace: String = parameters("eventhubs.namespace")
   private val eventHubsName: String = parameters("eventhubs.name")
 
@@ -211,7 +214,6 @@ private[spark] class EventHubsSource(
   }
 
   private def buildEventHubsRDD(endOffset: EventHubsBatchRecord): EventHubsRDD = {
-    println(s"$committedOffsetsAndSeqNums")
     val offsetRanges = fetchedHighestOffsetsAndSeqNums.offsets.map {
       case (eventHubNameAndPartition, (_, endSeqNum)) =>
         OffsetRange(eventHubNameAndPartition,
@@ -235,7 +237,7 @@ private[spark] class EventHubsSource(
     val (containsProperties, userDefinedKeys) =
       EventHubsSourceProvider.ifContainsPropertiesAndUserDefinedKeys(parameters)
     val rowRDD = eventHubsRDD.map(eventData =>
-      Row.fromSeq(Seq(eventData.getBody, eventData.getSystemProperties.getOffset.toLong,
+      Row.fromSeq(Seq(eventData.getBytes, eventData.getSystemProperties.getOffset.toLong,
         eventData.getSystemProperties.getSequenceNumber,
         eventData.getSystemProperties.getEnqueuedTime.getEpochSecond,
         eventData.getSystemProperties.getPublisher,
@@ -312,14 +314,10 @@ private[spark] class EventHubsSource(
 
   override def stop(): Unit = {}
 
-  // uniquely identify the entities in eventhubs side, it can be the namespace or the name of a
-  override def uid: String = s"${eventHubsNamespace}_$eventHubsName"
+  override def uid: String = s"${eventHubsNamespace}_${eventHubsName}_$streamId"
 
   // the list of eventhubs partitions connecting with this connector
   override def connectedInstances: List[EventHubNameAndPartition] = ehNameAndPartitions
-
-  // the id of the stream which is mapped from eventhubs instance
-  override val streamId: Int = EventHubsSource.streamIdGenerator.getAndIncrement()
 }
 
 private object EventHubsSource {

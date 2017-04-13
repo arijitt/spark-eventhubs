@@ -26,20 +26,8 @@ import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.streaming.{EventHubsStreamTest, ProcessingTime}
 import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
 
-abstract class EventHubsSourceTest extends EventHubsStreamTest with SharedSQLContext {
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-  }
-
-  override val streamingTimeout: org.scalatest.time.Span = 30.seconds
-}
-
-class EventHubsSourceSuite extends EventHubsSourceTest {
+class EventHubsSourceSuite extends EventHubsStreamTest {
 
   /*
   testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
@@ -137,7 +125,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
       "eventhubs.partition.count" -> "2",
       "eventhubs.consumergroup" -> "$Default",
       "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"3"
+      "eventhubs.maxRate" -> "3"
     )
 
     val eventPayloadsAndProperties = Seq(
@@ -157,9 +145,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
 
     val eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
       eventPayloadsAndProperties)
-
     val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
-
     val eventHubsSource = new EventHubsSource(spark.sqlContext, eventHubsParameters,
       (eventHubsParams: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
         new TestEventHubsReceiver(eventHubsParams, eventHubs, partitionId, startOffset),
@@ -167,24 +153,18 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
         new TestRestEventHubClient(highestOffsetPerPartition))
 
     // First batch
-
     var offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-
     var dataFrame = eventHubsSource.getBatch(None, offset)
-
+    dataFrame.foreach(_ => Unit)
     eventHubsSource.commit(offset)
-
     assert(offset.batchId == 0)
     offset.targetSeqNums.values.foreach(x => assert(x == 2))
 
     // Second batch
-
     offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-
     dataFrame = eventHubsSource.getBatch(None, offset)
-
+    dataFrame.foreach(_ => Unit)
     eventHubsSource.commit(offset)
-
     assert(offset.batchId == 1)
     offset.targetSeqNums.values.foreach(x => assert(x == 4))
   }
@@ -247,9 +227,8 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
       "eventhubs.partition.count" -> "2",
       "eventhubs.consumergroup" -> "$Default",
       "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"10"
+      "eventhubs.maxRate" -> "10"
     )
-
     val eventPayloadsAndProperties = Seq(
       1 -> Seq("propertyA" -> "a", "propertyB" -> "b", "propertyC" -> "c", "propertyD" -> "d",
         "propertyE" -> "e", "propertyF" -> "f"),
@@ -263,9 +242,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
 
     val eventHubs = EventHubsTestUtilities.simulateEventHubs(eventHubsParameters,
       eventPayloadsAndProperties)
-
     val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
-
     val eventHubsSource = new EventHubsSource(spark.sqlContext, eventHubsParameters,
       (eventHubsParams: Map[String, String], partitionId: Int, startOffset: Long, _: Int) =>
         new TestEventHubsReceiver(eventHubsParams, eventHubs, partitionId, startOffset),
@@ -273,13 +250,9 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
         new TestRestEventHubClient(highestOffsetPerPartition))
 
     val offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-
     val dataFrame = eventHubsSource.getBatch(None, offset)
-
     assert(dataFrame.schema == eventHubsSource.schema)
-
     eventHubsSource.commit(offset)
-
     assert(dataFrame.select("body").count == 6)
   }
 
@@ -294,7 +267,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
       "eventhubs.partition.count" -> "2",
       "eventhubs.consumergroup" -> "$Default",
       "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"3"
+      "eventhubs.maxRate" -> "3"
     )
 
     val eventPayloadsAndProperties = Seq(
@@ -324,7 +297,8 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     // First batch
     var offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
     var dataFrame = eventHubsSource.getBatch(None, offset)
-    dataFrame.show(100)
+
+    // dataFrame.show(100)
     assert(dataFrame.schema == eventHubsSource.schema)
     eventHubsSource.commit(offset)
     assert(dataFrame.select("body").count == 6)
@@ -332,10 +306,11 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     // Second batch
     offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
     dataFrame = eventHubsSource.getBatch(None, offset)
-    dataFrame.show(100)
+    // dataFrame.show(100)
     assert(dataFrame.schema == eventHubsSource.schema)
     eventHubsSource.commit(offset)
     assert(dataFrame.select("body").count == 4)
+
   }
 
   testWithUninterruptibleThread("Verify user-defined keys show up in dataframe" +

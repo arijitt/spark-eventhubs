@@ -111,18 +111,15 @@ object EventHubsTestUtilities extends Logging {
   }
 
   private def generateEventData[T, U](
-                                       payloadPropertyBag: Seq[(T, Seq[U])],
-                                       partitionId: Int): Array[EventData] = {
+      payloadPropertyBag: Seq[(T, Seq[U])],
+      partitionId: Int): Array[EventData] = {
 
     var offsetSetInQueue = 0
-
     val eventDataArray = new Array[EventData](payloadPropertyBag.length)
-
     val publisherName = "Microsoft Corporation"
 
     for((payload, properties) <- payloadPropertyBag) {
       val eventData = new EventData(payload.toString.getBytes)
-
       val systemPropertiesMap = new java.util.HashMap[String, AnyRef]()
       systemPropertiesMap.put(AmqpConstants.OFFSET_ANNOTATION_NAME,
         offsetSetInQueue.toString)
