@@ -33,13 +33,12 @@ import org.apache.spark.sql.streaming.eventhubs.checkpoint.StructuredStreamingPr
 import org.apache.spark.sql.types._
 
 private[spark] class EventHubsSource(
-                                      sqlContext: SQLContext,
-                                      parameters: Map[String, String],
-                                      eventhubReceiverCreator: (Map[String, String], Int, Long, Int) => EventHubsClientWrapper =
-                                      EventHubsClientWrapper.getEventHubReceiver,
-                                      eventhubClientCreator: (String, Map[String, Map[String, String]]) => EventHubClient =
-                                      RestfulEventHubClient.getInstance)
-  extends Source with EventHubsConnector with Logging {
+    sqlContext: SQLContext,
+    parameters: Map[String, String],
+    eventhubReceiverCreator: (Map[String, String], Int, Long, Int) => EventHubsClientWrapper =
+      EventHubsClientWrapper.getEventHubReceiver,
+    eventhubClientCreator: (String, Map[String, Map[String, String]]) => EventHubClient =
+      RestfulEventHubClient.getInstance) extends Source with EventHubsConnector with Logging {
 
   case class EventHubsOffset(batchId: Long, offsets: Map[EventHubNameAndPartition, (Long, Long)])
 
@@ -92,8 +91,8 @@ private[spark] class EventHubsSource(
   }
 
   private[spark] def setEventHubsReceiver(
-                                           eventhubReceiverCreator: (Map[String, String], Int, Long, Int)
-                                             => EventHubsClientWrapper): EventHubsSource = {
+      eventhubReceiverCreator: (Map[String, String], Int, Long, Int) =>
+        EventHubsClientWrapper): EventHubsSource = {
     _eventHubsReceiver = eventhubReceiverCreator
     this
   }
@@ -110,7 +109,8 @@ private[spark] class EventHubsSource(
     EventHubsSourceProvider.sourceSchema(parameters)
   }
 
-  private[spark] def composeHighestOffset(retryIfFail: Boolean) = {
+  private[spark] def composeHighestOffset(retryIfFail: Boolean):
+      Option[Map[EventHubNameAndPartition, (Long, Long)]] = {
     RateControlUtils.fetchLatestOffset(eventHubClient,
       retryIfFail = retryIfFail,
       if (fetchedHighestOffsetsAndSeqNums == null) {

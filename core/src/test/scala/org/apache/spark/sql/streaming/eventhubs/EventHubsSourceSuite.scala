@@ -322,7 +322,6 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
 
     // First batch
     var offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-    println(offset)
     var dataFrame = eventHubsSource.getBatch(None, offset)
     dataFrame.show(100)
     assert(dataFrame.schema == eventHubsSource.schema)
@@ -331,7 +330,6 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
 
     // Second batch
     offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
-    println(offset)
     dataFrame = eventHubsSource.getBatch(None, offset)
     dataFrame.show(100)
     assert(dataFrame.schema == eventHubsSource.schema)
@@ -608,7 +606,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
       "eventhubs.partition.count" -> "2",
       "eventhubs.consumergroup" -> "$Default",
       "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"3"
+      "eventhubs.maxRate" -> "3"
     )
 
     val eventPayloadsAndProperties = Seq(
@@ -658,7 +656,7 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
       "eventhubs.partition.count" -> "2",
       "eventhubs.consumergroup" -> "$Default",
       "eventhubs.progressTrackingDir" -> "/tmp",
-      "eventhubs.maxRate" -> s"3"
+      "eventhubs.maxRate" -> "3"
     )
 
     val eventPayloadsAndProperties = Seq(
@@ -685,7 +683,8 @@ class EventHubsSourceSuite extends EventHubsSourceTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0)),
+      StartStream(trigger = ProcessingTime(0),
+        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
       CheckAnswer(2, 4, 6, 1, 10, 8)
     )
