@@ -34,8 +34,7 @@ object EventHubsTestUtilities extends Logging {
 
   def simulateEventHubs[T, U](
      eventHubsParameters: Map[String, String],
-     eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])])
-  : SimulatedEventHubs = {
+     eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]): SimulatedEventHubs = {
 
     assert(eventHubsParameters != null)
     assert(eventHubsParameters.nonEmpty)
@@ -59,19 +58,16 @@ object EventHubsTestUtilities extends Logging {
   }
 
   def getOrSimulateEventHubs[T, U](
-    eventHubsParameters: Map[String, String],
-    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
-  SimulatedEventHubs = {
-
-    if (simulatedEventHubs == null) simulatedEventHubs
-      = simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
-
+      eventHubsParameters: Map[String, String],
+      eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]): SimulatedEventHubs = {
+    if (simulatedEventHubs == null) {
+      simulatedEventHubs = simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
+    }
     simulatedEventHubs
   }
 
   def getHighestOffsetPerPartition(eventHubs: SimulatedEventHubs):
-  Map[EventHubNameAndPartition, (Long, Long)] = {
-
+      Map[EventHubNameAndPartition, (Long, Long)] = {
     eventHubs.messageStore.map {
       case (ehNameAndPartition, messageQueue) => (ehNameAndPartition,
         (messageQueue.length.toLong - 1, messageQueue.length.toLong - 1))
@@ -90,27 +86,22 @@ object EventHubsTestUtilities extends Logging {
   }
 
   private def roundRobinAllocation[T, U](
-    eventHubsPartitionList: Seq[EventHubNameAndPartition],
-    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
-  Map[EventHubNameAndPartition, Array[EventData]] = {
+      eventHubsPartitionList: Seq[EventHubNameAndPartition],
+      eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
+    Map[EventHubNameAndPartition, Array[EventData]] = {
 
     if (eventPayloadsAndProperties.isEmpty) {
-
       eventHubsPartitionList.map(x => x -> Seq.empty[EventData].toArray).toMap
-
     } else {
-
       val eventAllocation: Seq[(EventHubNameAndPartition, Seq[(T, Seq[U])])] = {
         if (eventHubsPartitionList.length >= eventPayloadsAndProperties.length) {
           eventHubsPartitionList.zip(eventPayloadsAndProperties.map(x => Seq(x)))
         } else {
-
           eventPayloadsAndProperties.zipWithIndex
             .map(x => (eventHubsPartitionList(x._2 % eventHubsPartitionList.length), x._1)).
             groupBy(_._1).map { case (k, v) => (k, v.map(_._2)) }
         }.toSeq
       }
-
       eventAllocation.map {
         case (eventHubNameAndPartition, payloadPropertyBag) =>
           (eventHubNameAndPartition,
