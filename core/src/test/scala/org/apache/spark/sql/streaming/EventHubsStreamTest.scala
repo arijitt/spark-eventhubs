@@ -29,7 +29,7 @@ import scala.util.Random
 import scala.util.control.NonFatal
 
 import org.mockito.internal.util.reflection.Whitebox
-import org.scalatest.Assertions
+import org.scalatest.{Assertions, BeforeAndAfter}
 import org.scalatest.concurrent.{Eventually, Timeouts}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
@@ -73,14 +73,8 @@ import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
  * by overriding `streamingTimeout`.
  */
 
-trait EventHubsStreamTest extends QueryTest with SharedSQLContext with Timeouts with Serializable {
-
-
-  override protected def createSparkSession: TestSparkSession = {
-    new TestSparkSession(
-      sparkConf.set("spark.hadoop.fs.file.impl", classOf[DebugFilesystem].getName).setAppName(
-        s"EventHubsStreamTest_${System.currentTimeMillis()}"))
-  }
+trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
+  with SharedSQLContext with Timeouts with Serializable {
 
   /** How long to wait for an active stream to catch up when checking a result. */
   val streamingTimeout = 30.seconds
