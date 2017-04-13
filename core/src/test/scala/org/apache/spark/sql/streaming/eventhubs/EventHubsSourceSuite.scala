@@ -519,6 +519,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
     assert(outputArray.sorted.corresponds(inputArray.sorted) {_ == _})
   }
+  */
 
   testWithUninterruptibleThread("Verify input row metric is correct when source" +
     " is started with initial data") {
@@ -616,7 +617,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       CheckAnswer(2, 4, 6, 1, 10, 8)
     )
   }
-  */
+
 
   testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
     " after source starts with initial data and more data added to source") {
