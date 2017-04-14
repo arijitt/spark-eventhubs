@@ -49,7 +49,7 @@ object EventHubsTestUtilities extends Logging {
         yield EventHubNameAndPartition(eventHubsName, i)
     }
 
-    val payloadPropertyStore = roundRobinAllocation(eventHubsPartitionList,
+    val payloadPropertyStore = roundRobinAllocation(eventHubsPartitionList.map(x => x -> 0).toMap,
       eventPayloadsAndProperties)
 
     simulatedEventHubs = new SimulatedEventHubs(eventHubsNamespace, payloadPropertyStore)
@@ -77,18 +77,20 @@ object EventHubsTestUtilities extends Logging {
   def addEventsToEventHubs[T, U](
      eventHubs: SimulatedEventHubs,
      eventPayloadsAndProperties: Seq[(T, Seq[U])]): SimulatedEventHubs = {
-    val eventHubsPartitionList = eventHubs.eventHubsNamedPartitions
     // Round-robin allocation of payloads to partitions
-    val payloadPropertyStore = roundRobinAllocation(eventHubsPartitionList,
-      eventPayloadsAndProperties)
+    val payloadPropertyStore = roundRobinAllocation(eventHubs.eventHubsNamedPartitions
+      .map(x => x -> eventHubs.messageStore(x).length).toMap, eventPayloadsAndProperties)
     eventHubs.send(payloadPropertyStore)
     eventHubs
   }
 
   private def roundRobinAllocation[T, U](
-      eventHubsPartitionList: Seq[EventHubNameAndPartition],
-      eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
-    Map[EventHubNameAndPartition, Array[EventData]] = {
+    eventHubsPartitionOffsetMap: Map[EventHubNameAndPartition, Int],
+    eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]):
+  Map[EventHubNameAndPartition, Array[EventData]] = {
+
+    val eventHubsPartitionList : Seq[EventHubNameAndPartition] =
+      eventHubsPartitionOffsetMap.keys.toSeq
 
     if (eventPayloadsAndProperties.isEmpty) {
       eventHubsPartitionList.map(x => x -> Seq.empty[EventData].toArray).toMap
@@ -104,17 +106,19 @@ object EventHubsTestUtilities extends Logging {
       }
       eventAllocation.map {
         case (eventHubNameAndPartition, payloadPropertyBag) =>
-          (eventHubNameAndPartition,
-            generateEventData(payloadPropertyBag, eventHubNameAndPartition.partitionId))
+          (eventHubNameAndPartition, generateEventData(payloadPropertyBag,
+            eventHubNameAndPartition.partitionId,
+            eventHubsPartitionOffsetMap(eventHubNameAndPartition)))
       }.toMap
     }
   }
 
   private def generateEventData[T, U](
       payloadPropertyBag: Seq[(T, Seq[U])],
-      partitionId: Int): Array[EventData] = {
+      partitionId: Int, startingOffset: Int): Array[EventData] = {
 
-    var offsetSetInQueue = 0
+    var queueOffset = startingOffset
+    var eventIndex = 0
     val eventDataArray = new Array[EventData](payloadPropertyBag.length)
     val publisherName = "Microsoft Corporation"
 
@@ -122,9 +126,9 @@ object EventHubsTestUtilities extends Logging {
       val eventData = new EventData(payload.toString.getBytes)
       val systemPropertiesMap = new java.util.HashMap[String, AnyRef]()
       systemPropertiesMap.put(AmqpConstants.OFFSET_ANNOTATION_NAME,
-        offsetSetInQueue.toString)
+        queueOffset.toString)
       systemPropertiesMap.put(AmqpConstants.SEQUENCE_NUMBER_ANNOTATION_NAME,
-        Long.box(offsetSetInQueue))
+        Long.box(queueOffset))
       systemPropertiesMap.put(AmqpConstants.PARTITION_KEY_ANNOTATION_NAME,
         partitionId.toString)
       systemPropertiesMap.put(AmqpConstants.PUBLISHER_ANNOTATION_NAME,
@@ -144,9 +148,10 @@ object EventHubsTestUtilities extends Logging {
         }
       }
 
-      eventDataArray(offsetSetInQueue) = eventData
+      eventDataArray(eventIndex) = eventData
 
-      offsetSetInQueue += 1
+      queueOffset += 1
+      eventIndex += 1
     }
 
     eventDataArray

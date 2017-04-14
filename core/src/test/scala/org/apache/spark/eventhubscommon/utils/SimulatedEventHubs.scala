@@ -66,6 +66,7 @@ class TestEventHubsReceiver(
 
   override def receive(expectedEventNum: Int): Iterable[EventData] = {
     val eventHubName = eventHubParameters("eventhubs.name")
+
     eventHubs.search(EventHubNameAndPartition(eventHubName, partitionId), startOffset.toInt,
       expectedEventNum)
   }

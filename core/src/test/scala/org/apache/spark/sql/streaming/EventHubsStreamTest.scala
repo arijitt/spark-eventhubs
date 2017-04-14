@@ -364,7 +364,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             }
 
             val eventHubsSource = sources.head
-            val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null, null)
+            val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null)
             val highestOffsetPerPartition = {
               if (!additionalConfs.contains("eventhubs.highestOffset")) {
                 EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)

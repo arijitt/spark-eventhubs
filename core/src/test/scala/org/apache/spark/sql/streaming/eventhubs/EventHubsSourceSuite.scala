@@ -29,7 +29,6 @@ import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
 
 class EventHubsSourceSuite extends EventHubsStreamTest {
 
-  /*
   testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
     " is less than the available data") {
 
@@ -519,7 +518,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
     assert(outputArray.sorted.corresponds(inputArray.sorted) {_ == _})
   }
-  */
+
 
   testWithUninterruptibleThread("Verify input row metric is correct when source" +
     " is started with initial data") {
@@ -618,6 +617,56 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
+    " after data added to source in excess of the rate") {
+
+    import testImplicits._
+
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> "3"
+    )
+
+    val eventPayloadsAndProperties = Seq(
+      2 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      4 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      6 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      8 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      10 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      12 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      1 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      3 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      11 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    EventHubsTestUtilities.simulateEventHubs(eventHubsParameters)
+
+    val dataSource = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery = dataSource.map(x => x.toInt + 1)
+
+    testStream(sourceQuery)(
+      StartStream(trigger = ProcessingTime(0),
+        additionalConfs = Map("eventhubs.highestOffset" -> "5")),
+      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
+      CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12)
+    )
+  }
 
   testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
     " after source starts with initial data and more data added to source") {
@@ -673,7 +722,69 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
-  /*
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
+    " after source starts with initial data and more data added to source in " +
+    "multiple streams from the same source") {
+
+    import testImplicits._
+
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> "3"
+    )
+
+    val eventPayloadsAndProperties = Seq(
+      2 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      4 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      6 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      8 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      10 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      12 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    EventHubsTestUtilities.simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)
+
+    val dataSource1 = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery1 = dataSource1.map(x => x.toInt + 1)
+
+    val dataSource2 = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery2 = dataSource2.map(x => x.toInt + 1)
+
+    testStream(sourceQuery1)(
+      StartStream(trigger = ProcessingTime(0),
+        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
+      AddEventHubsData(eventHubsParameters),
+      CheckAnswer(3, 7, 11, 5, 9, 13)
+    )
+
+    testStream(sourceQuery2)(
+      StartStream(trigger = ProcessingTime(0),
+        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
+      AddEventHubsData(eventHubsParameters),
+      CheckAnswer(3, 7, 11, 5, 9, 13)
+    )
+  }
+
   testWithUninterruptibleThread("Verify expected dataframe is retrieved" +
     " from latest offset on stream restart") {
 
@@ -705,22 +816,13 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
       7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
       9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      11 -> Seq("creationTime" -> Calendar.getInstance().getTime)
-    )
-
-    val eventPayloadsAndProperties3 = Seq(
-      1 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      2 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      3 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      4 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      6 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      8 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      10 -> Seq("creationTime" -> Calendar.getInstance().getTime),
       11 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      12 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+      13 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      15 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      17 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      19 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      21 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      23 -> Seq("creationTime" -> Calendar.getInstance().getTime)
     )
 
     EventHubsTestUtilities.simulateEventHubs(eventHubsParameters)
@@ -741,16 +843,11 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties1),
       CheckAnswer(3, 7, 11, 5, 9, 13),
       StopStream,
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "5")),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
-      CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12),
-      StopStream,
       StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "11")),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties3),
-      CheckAnswer(3, 7, 11, 2, 6, 10, 2, 4, 6, 8, 10, 12, 5, 9, 13, 4, 8, 12, 3, 5, 7, 9, 11, 13)
+        additionalConfs = Map("eventhubs.highestOffset" -> "8")),
+      CheckAnswer(3, 7, 11, 5, 9, 13, 3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8,
+        12, 14, 18, 22, 16, 20, 24)
     )
   }
-  */
 }
