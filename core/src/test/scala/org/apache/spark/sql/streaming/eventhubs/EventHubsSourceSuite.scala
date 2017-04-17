@@ -775,7 +775,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0)),
+      StartStream(trigger = ProcessingTime(10.seconds)),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties1),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
       CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12)
@@ -783,7 +783,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
   }
 
   test("Verify expected dataframe can be retrieved from different sources with same event hubs" +
-    " on different streams on different queries") {
+    " on different streams on different queries at same rate") {
 
     import testImplicits._
 
@@ -830,14 +830,85 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery2 = dataSource2.map(x => x.toInt + 1)
 
     testStream(sourceQuery1)(
-      StartStream(trigger = ProcessingTime(0)),
+      StartStream(trigger = ProcessingTime(10.seconds)),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
 
     testStream(sourceQuery2)(
-      StartStream(trigger = ProcessingTime(0)),
+      StartStream(trigger = ProcessingTime(10.seconds)),
       AddEventHubsData(eventHubsParameters),
+      CheckAnswer(3, 7, 11, 5, 9, 13)
+    )
+  }
+
+  test("Verify expected dataframe can be retrieved from different sources with same event hubs" +
+    " on different streams on different queries at different rates") {
+
+    import testImplicits._
+
+    val eventHubsParameters1 = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> "3"
+    )
+
+    val eventHubsParameters2 = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> "2"
+    )
+
+    val eventPayloadsAndProperties = Seq(
+      2 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      4 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      6 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      8 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      10 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      12 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    EventHubsTestUtilities.simulateEventHubs(eventHubsParameters1, eventPayloadsAndProperties)
+
+    val dataSource1 = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters1)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery1 = dataSource1.map(x => x.toInt + 1)
+
+    val dataSource2 = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters2)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery2 = dataSource2.map(x => x.toInt + 1)
+
+    testStream(sourceQuery1)(
+      StartStream(trigger = ProcessingTime(10.seconds)),
+      AddEventHubsData(eventHubsParameters1),
+      CheckAnswer(3, 7, 11, 5, 9, 13)
+    )
+
+    testStream(sourceQuery2)(
+      StartStream(trigger = ProcessingTime(10.seconds)),
+      AddEventHubsData(eventHubsParameters2),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
   }
