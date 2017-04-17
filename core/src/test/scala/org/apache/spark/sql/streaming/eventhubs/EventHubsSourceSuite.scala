@@ -21,15 +21,12 @@ import java.util.Calendar
 
 import org.scalatest.time.SpanSugar._
 
-import org.apache.spark.DebugFilesystem
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.streaming.{EventHubsStreamTest, ProcessingTime}
-import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
-
 
 class EventHubsSourceSuite extends EventHubsStreamTest {
 
-  testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
+  test("Verify expected offsets are correct when rate" +
     " is less than the available data") {
 
     val eventHubsParameters = Map[String, String](
@@ -71,7 +68,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     offset.targetSeqNums.values.foreach(x => assert(x == 1))
   }
 
-  testWithUninterruptibleThread("Verify expected offsets are correct when rate" +
+  test("Verify expected offsets are correct when rate" +
     " is more than the available data") {
 
     val eventHubsParameters = Map[String, String](
@@ -113,7 +110,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     offset.targetSeqNums.values.foreach(x => assert(x == 2))
   }
 
-  testWithUninterruptibleThread("Verify expected offsets are correct when" +
+  test("Verify expected offsets are correct when" +
     " in subsequent fetch when rate is less than the available data") {
 
     val eventHubsParameters = Map[String, String](
@@ -168,7 +165,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     offset.targetSeqNums.values.foreach(x => assert(x == 4))
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe size is correct" +
+  test("Verify expected dataframe size is correct" +
     " when the rate is less than the available data") {
 
     val eventHubsParameters = Map[String, String](
@@ -215,7 +212,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     assert(dataFrame.select("body").count == 4)
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe size is correct" +
+  test("Verify expected dataframe size is correct" +
     " when the rate is more than the available data") {
 
     val eventHubsParameters = Map[String, String](
@@ -255,7 +252,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     assert(dataFrame.select("body").count == 6)
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe size is correct" +
+  test("Verify expected dataframe size is correct" +
     " in subsequent fetch when the rate is less than the available data") {
 
     val eventHubsParameters = Map[String, String](
@@ -312,7 +309,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
   }
 
-  testWithUninterruptibleThread("Verify user-defined keys show up in dataframe" +
+  test("Verify user-defined keys show up in dataframe" +
     " schema if specified explicitly") {
 
     val eventHubsParameters = Map[String, String](
@@ -359,7 +356,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     assert(dataFrame.columns.contains("creationTime"))
   }
 
-  testWithUninterruptibleThread("Verify user-defined keys show up in dataframe" +
+  test("Verify user-defined keys show up in dataframe" +
     " schema if not specified explicitly") {
 
     val eventHubsParameters = Map[String, String](
@@ -409,7 +406,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
   }
 
-  testWithUninterruptibleThread("Verify dataframe body is correct for String type") {
+  test("Verify dataframe body is correct for String type") {
 
     val eventHubsParameters = Map[String, String](
       "eventhubs.policyname" -> "policyName",
@@ -464,7 +461,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     assert(outputArray.sorted.corresponds(inputArray.sorted) {_ == _})
   }
 
-  testWithUninterruptibleThread("Verify dataframe body is correct for Int type") {
+  test("Verify dataframe body is correct for Int type") {
 
     val eventHubsParameters = Map[String, String](
       "eventhubs.policyname" -> "policyName",
@@ -519,8 +516,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     assert(outputArray.sorted.corresponds(inputArray.sorted) {_ == _})
   }
 
-
-  testWithUninterruptibleThread("Verify input row metric is correct when source" +
+  test("Verify input row metric is correct when source" +
     " is started with initial data") {
 
     import testImplicits._
@@ -570,7 +566,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
+  test("Verify expected dataframe can be retrieved" +
     " after data addition to source") {
 
     import testImplicits._
@@ -610,15 +606,14 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
       CheckAnswer(2, 4, 6, 1, 10, 8)
     )
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
-    " after data added to source in excess of the rate") {
+  test("Verify expected dataframe can be retrieved after data added to source in excess" +
+    " of the rate") {
 
     import testImplicits._
 
@@ -661,15 +656,14 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "5")),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
       CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12)
     )
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
-    " after source starts with initial data and more data added to source") {
+  test("Verify expected dataframe can be retrieved when more data is added to" +
+    " source after stream has started") {
 
     import testImplicits._
 
@@ -702,6 +696,15 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       11 -> Seq("creationTime" -> Calendar.getInstance().getTime)
     )
 
+    val eventPayloadsAndProperties3 = Seq(
+      1 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      3 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      11 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
     EventHubsTestUtilities.simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties1)
 
     val dataSource = spark
@@ -715,16 +718,72 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "5")),
+      StartStream(trigger = ProcessingTime(10.seconds)),
+      AddEventHubsData(eventHubsParameters),
+      CheckAnswer(3, 7, 11, 5, 9, 13),
+      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
+      CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12),
+      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties3),
+      CheckAnswer(3, 7, 11, 2, 6, 10, 2, 6, 10, 5, 9, 13, 4, 8, 12, 4, 8, 12)
+    )
+  }
+
+  test("Verify expected dataframe can be retrieved with" +
+    " data added to source after the stream has started") {
+
+    import testImplicits._
+
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> "3"
+    )
+
+    val eventPayloadsAndProperties1 = Seq(
+      2 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      4 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      6 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      8 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      10 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      12 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    val eventPayloadsAndProperties2 = Seq(
+      1 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      3 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      11 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    EventHubsTestUtilities.simulateEventHubs(eventHubsParameters)
+
+    val dataSource = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery = dataSource.map(x => x.toInt + 1)
+
+    testStream(sourceQuery)(
+      StartStream(trigger = ProcessingTime(0)),
+      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties1),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
       CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12)
     )
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved" +
-    " after source starts with initial data and more data added to source in " +
-    "multiple streams from the same source") {
+  test("Verify expected dataframe can be retrieved from different sources with same event hubs" +
+    " on different streams on different queries") {
 
     import testImplicits._
 
@@ -771,22 +830,20 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery2 = dataSource2.map(x => x.toInt + 1)
 
     testStream(sourceQuery1)(
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
 
     testStream(sourceQuery2)(
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe is retrieved" +
-    " from latest offset on stream restart") {
+  test("Verify expected dataframe is retrieved from starting offset" +
+    " on different streams on the same query") {
 
     import testImplicits._
 
@@ -838,16 +895,14 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "2")),
+      StartStream(trigger = ProcessingTime(10.seconds)),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties1),
       CheckAnswer(3, 7, 11, 5, 9, 13),
       StopStream,
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
-      StartStream(trigger = ProcessingTime(0),
-        additionalConfs = Map("eventhubs.highestOffset" -> "8")),
-      CheckAnswer(3, 7, 11, 5, 9, 13, 3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8,
-        12, 14, 18, 22, 16, 20, 24)
+      StartStream(trigger = ProcessingTime(10.seconds)),
+      CheckAnswer(3, 7, 11, 5, 9, 13, 3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8, 12, 14, 18,
+        22, 16, 20, 24)
     )
   }
 }

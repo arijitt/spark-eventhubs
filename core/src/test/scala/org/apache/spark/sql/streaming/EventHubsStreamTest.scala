@@ -27,8 +27,6 @@ import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.util.Random
 import scala.util.control.NonFatal
-
-import org.mockito.internal.util.reflection.Whitebox
 import org.scalatest.{Assertions, BeforeAndAfter}
 import org.scalatest.concurrent.{Eventually, Timeouts}
 import org.scalatest.concurrent.Eventually._
@@ -36,16 +34,14 @@ import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.exceptions.TestFailedDueToTimeoutException
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-
-import org.apache.spark.DebugFilesystem
-import org.apache.spark.eventhubscommon.utils.{EventHubsTestUtilities, TestEventHubsReceiver, TestRestEventHubClient}
+import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.{Dataset, Encoder, QueryTest, Row}
 import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder, encoderFor}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.streaming.eventhubs.{EventHubsAddData, EventHubsBatchRecord, EventHubsSource, StreamAction}
-import org.apache.spark.sql.test.{SharedSQLContext, TestSparkSession}
+import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
 
 /**
@@ -77,7 +73,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
   with SharedSQLContext with Timeouts with Serializable {
 
   /** How long to wait for an active stream to catch up when checking a result. */
-  val streamingTimeout = 30.seconds
+  val streamingTimeout = 60.seconds
 
 
   /** A trait for actions that can be performed while testing a streaming DataFrame. */
@@ -365,18 +361,8 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
 
             val eventHubsSource = sources.head
             val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null)
-            val highestOffsetPerPartition = {
-              if (!additionalConfs.contains("eventhubs.highestOffset")) {
-                EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
-              } else {
-                val capacity = additionalConfs("eventhubs.highestOffset").toLong
-                EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs).map{
-                  case (ehNameAndPartition, _) =>
-                    (ehNameAndPartition, (capacity, capacity))
-                }
-              }
-            }
-            eventHubsSource.setEventHubClient(new TestRestEventHubClient(highestOffsetPerPartition))
+
+            eventHubsSource.setEventHubClient(new SimulatedEventHubsRestClient(eventHubs))
             eventHubsSource.setEventHubsReceiver(
               (eventHubsParameters: Map[String, String], partitionId: Int,
                startOffset: Long, _: Int) => new TestEventHubsReceiver(eventHubsParameters,

@@ -72,6 +72,20 @@ class TestEventHubsReceiver(
   }
 }
 
+class SimulatedEventHubsRestClient(eventHubs: SimulatedEventHubs) extends EventHubClient {
+
+  override def endPointOfPartition(
+    retryIfFail: Boolean,
+    targetEventHubNameAndPartitions: List[EventHubNameAndPartition] = List()):
+  Option[Predef.Map[EventHubNameAndPartition, (Long, Long)]] = {
+
+    Some(eventHubs.messageStore
+      .map(x => x._1 -> (x._2.length.toLong - 1, x._2.length.toLong - 1)))
+  }
+
+  override def close(): Unit = {}
+}
+
 class TestRestEventHubClient(
     latestRecords: Map[EventHubNameAndPartition, (Long, Long)]) extends EventHubClient {
 
