@@ -325,15 +325,17 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             val createQueryMethod = sparkSession.streams.getClass.getDeclaredMethods.filter(m =>
               m.getName == "createQuery").head
             createQueryMethod.setAccessible(true)
+            val streamName = additionalConfs.getOrElse[String]("eventhubs.test.streamName",
+              sparkSession.streams.toString)
             currentStream = createQueryMethod.invoke(
-              sparkSession.streams,
+              streamName,
               None,
               Some(metadataRoot),
               stream,
               sink,
               outputMode,
-              Boolean.box(false),
-              Boolean.box(true),
+              Boolean.box(false), // useTempCheckpointLocation
+              Boolean.box(true), // recoverFromCheckpointLocation
               trigger,
               triggerClock).asInstanceOf[StreamExecution]
 
