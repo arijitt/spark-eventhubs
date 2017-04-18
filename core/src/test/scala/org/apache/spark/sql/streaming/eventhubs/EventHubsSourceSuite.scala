@@ -987,6 +987,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
         additionalConfs = Map("eventhubs.test.checkpointLocation" ->
           s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}",
         "eventhubs.test.newSink" -> "true")),
+      // YOU NEED TO ADD A SPECIAL COMMAND HERE TO MODIFY YOUR EXPECTATION to (batchID = 0, 2, 2)
       CheckAnswer(3, 7, 11, 5, 9, 13),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2,
         highestBatchId.getAndIncrement().toLong),
