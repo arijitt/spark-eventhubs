@@ -298,7 +298,6 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
     }
 
     val metadataRoot = Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath
-    println(s"creating $metadataRoot")
     var manualClockExpectedTime = -1L
     try {
       startedTest.foreach { action =>
@@ -326,11 +325,13 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             val createQueryMethod = sparkSession.streams.getClass.getDeclaredMethods.filter(m =>
               m.getName == "createQuery").head
             createQueryMethod.setAccessible(true)
-            val streamName = additionalConfs.get("eventhubs.test.streamName")
+            val checkpointLocation = additionalConfs.getOrElse[String](
+              "eventhubs.test.checkpointLocation",
+              metadataRoot)
             currentStream = createQueryMethod.invoke(
               sparkSession.streams,
               None,
-              Some(metadataRoot),
+              Some(checkpointLocation),
               stream,
               sink,
               outputMode,

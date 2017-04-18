@@ -23,8 +23,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.time.SpanSugar._
+
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.streaming.{EventHubsStreamTest, ProcessingTime}
+import org.apache.spark.util.Utils
 
 class EventHubsSourceSuite extends EventHubsStreamTest {
 
@@ -982,7 +984,8 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       CheckAnswer(3, 7, 11, 5, 9, 13),
       StopStream,
       StartStream(trigger = ProcessingTime(10), triggerClock = manualClock,
-        additionalConfs = Map("eventhubs.test.streamName" -> "newStream1")),
+        additionalConfs = Map("eventhubs.test.checkpointLocation" ->
+          s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}")),
       // CheckAnswer(3, 7, 11, 5, 9, 13),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2,
         highestBatchId.getAndIncrement().toLong),
