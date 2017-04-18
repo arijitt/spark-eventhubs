@@ -374,6 +374,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                   streamDeathCause = e
                 }
               })
+            println(s"checkpoint dir: ${currentStream.offsetLog.metadataPath}")
             currentStream.start()
 
           case AdvanceManualClock(timeToAdd) =>
