@@ -183,7 +183,6 @@ private[spark] class EventHubsSource(
       targetOffsets.map{case (ehNameAndPartition, seqNum) =>
         (ehNameAndPartition, math.min(seqNum,
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
-    println(a)
     a
   }
 
