@@ -328,7 +328,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             val streamName = additionalConfs.getOrElse[String]("eventhubs.test.streamName",
               sparkSession.streams.toString)
             currentStream = createQueryMethod.invoke(
-              streamName,
+              Some(streamName),
               None,
               Some(metadataRoot),
               stream,
