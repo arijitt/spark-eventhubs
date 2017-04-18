@@ -304,6 +304,7 @@ private[spark] class EventHubsSource(
       println("recover from failure?")
       recoverFromFailure(start, end)
     }
+    println("getBatch is called")
     val eventhubsRDD = buildEventHubsRDD({
       end match {
         case so: SerializedOffset =>
