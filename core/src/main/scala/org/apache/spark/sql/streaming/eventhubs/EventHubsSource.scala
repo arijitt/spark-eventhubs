@@ -302,6 +302,7 @@ private[spark] class EventHubsSource(
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
+      println("recover from failure?")
       recoverFromFailure(start, end)
     }
     val eventhubsRDD = buildEventHubsRDD({
