@@ -214,7 +214,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
     var currentStream: StreamExecution = null
     var lastStream: StreamExecution = null
     val awaiting = new mutable.HashMap[Int, Offset]() // source index -> offset to wait for
-    val sink = new MemorySink(stream.schema, outputMode)
+    var sink = new MemorySink(stream.schema, outputMode)
     val resetConfValues = mutable.Map[String, Option[String]]()
 
     @volatile
@@ -328,6 +328,10 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             val checkpointLocation = additionalConfs.getOrElse[String](
               "eventhubs.test.checkpointLocation",
               metadataRoot)
+            if (additionalConfs.contains("eventhubs.test.newSink") &&
+              additionalConfs("eventhubs.test.newSink").toBoolean) {
+              sink = new MemorySink(stream.schema, outputMode)
+            }
             currentStream = createQueryMethod.invoke(
               sparkSession.streams,
               None,
@@ -379,6 +383,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
               })
             println(s"checkpoint dir: stream ${currentStream.id}" +
               s" ${currentStream.offsetLog.metadataPath}")
+
             currentStream.start()
 
           case AdvanceManualClock(timeToAdd) =>

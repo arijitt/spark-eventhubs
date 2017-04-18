@@ -985,7 +985,8 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       StopStream,
       StartStream(trigger = ProcessingTime(10), triggerClock = manualClock,
         additionalConfs = Map("eventhubs.test.checkpointLocation" ->
-          s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}")),
+          s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}",
+        "eventhubs.test.newSink" -> "true")),
       CheckAnswer(3, 7, 11, 5, 9, 13, 3, 7, 11, 5, 9, 13),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2,
         highestBatchId.getAndIncrement().toLong),
