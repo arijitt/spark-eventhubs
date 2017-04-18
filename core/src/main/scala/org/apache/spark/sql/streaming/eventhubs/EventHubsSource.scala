@@ -101,7 +101,7 @@ private[spark] class EventHubsSource(
   }
 
   // the flag to avoid committing in the first batch
-  private[eventhubs] var firstBatch = true
+  private[spark] var firstBatch = true
   // the offsets which have been to the self-managed offset store
   private var committedOffsetsAndSeqNums: EventHubsOffset =
     EventHubsOffset(-1L, ehNameAndPartitions.map((_, (-1L, -1L))).toMap)

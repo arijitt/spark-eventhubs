@@ -395,6 +395,13 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
               s"Unexpected clock time after updating: " +
                 s"expecting $manualClockExpectedTime, current ${clock.getTimeMillis()}")
 
+            val sources = currentStream.logicalPlan.collect {
+              case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
+                source.asInstanceOf[EventHubsSource]
+            }.head
+
+            println(s"currentStream State: ${sources.firstBatch}")
+
           case StopStream =>
             verify(currentStream != null, "can not stop a stream that is not running")
             try failAfter(streamingTimeout) {
