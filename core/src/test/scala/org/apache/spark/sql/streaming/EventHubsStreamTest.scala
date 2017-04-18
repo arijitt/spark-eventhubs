@@ -358,8 +358,8 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                 "logical plan as there" +
                 "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
             }
-
             val eventHubsSource = sources.head
+            println(s"find source ${eventHubsSource.streamId}")
             val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null)
 
             eventHubsSource.setEventHubClient(new SimulatedEventHubsRestClient(eventHubs))
@@ -375,7 +375,6 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                   streamDeathCause = e
                 }
               })
-
             currentStream.start()
 
           case AdvanceManualClock(timeToAdd) =>

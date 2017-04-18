@@ -178,10 +178,12 @@ private[spark] class EventHubsSource(
     }
     val targetOffsets = RateControlUtils.clamp(committedOffsetsAndSeqNums.offsets,
       highestOffsetsOpt.get, parameters)
-    Some(EventHubsBatchRecord(committedOffsetsAndSeqNums.batchId + 1,
+    val a = Some(EventHubsBatchRecord(committedOffsetsAndSeqNums.batchId + 1,
       targetOffsets.map{case (ehNameAndPartition, seqNum) =>
         (ehNameAndPartition, math.min(seqNum,
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
+    println(a)
+    a
   }
 
   /**
