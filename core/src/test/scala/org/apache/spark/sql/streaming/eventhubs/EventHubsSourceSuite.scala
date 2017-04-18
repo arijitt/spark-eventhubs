@@ -23,8 +23,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.time.SpanSugar._
+
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.streaming.{EventHubsStreamTest, ProcessingTime}
+import org.apache.spark.util.Utils
 
 class EventHubsSourceSuite extends EventHubsStreamTest {
 
@@ -981,13 +983,17 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       AdvanceManualClock(10),
       CheckAnswer(3, 7, 11, 5, 9, 13),
       StopStream,
-      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
-      // CheckAnswer(3, 7, 11, 5, 9, 13),
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock,
+        additionalConfs = Map("eventhubs.test.checkpointLocation" ->
+          s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}",
+        "eventhubs.test.newSink" -> "true")),
+      // YOU NEED TO ADD A SPECIAL COMMAND HERE TO MODIFY YOUR EXPECTATION to (batchID = 0, 2, 2)
+      CheckAnswer(3, 7, 11, 5, 9, 13),
       AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2,
         highestBatchId.getAndIncrement().toLong),
       AdvanceManualClock(10),
-      CheckAnswer(3, 7, 11, 5, 9, 13, 3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8, 12, 14, 18,
-      22, 16, 20, 24)
+      CheckAnswer(3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8, 12, 14, 18,
+        22, 16, 20, 24)
     )
   }
 }

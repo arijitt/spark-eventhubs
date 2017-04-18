@@ -75,6 +75,7 @@ case class AddEventHubsData[T: ClassTag, U: ClassTag](
     }
 
     val eventHubsSource = sources.head
+    println(s"eventHubsSource.firstBatch ${eventHubsSource.firstBatch}")
     val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(eventHubsParameters)
 
     EventHubsTestUtilities.addEventsToEventHubs(eventHubs, eventPayloadsAndProperties)

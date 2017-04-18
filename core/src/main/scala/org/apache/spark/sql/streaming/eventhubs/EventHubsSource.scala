@@ -101,7 +101,7 @@ private[spark] class EventHubsSource(
   }
 
   // the flag to avoid committing in the first batch
-  private var firstBatch = true
+  private[spark] var firstBatch = true
   // the offsets which have been to the self-managed offset store
   private var committedOffsetsAndSeqNums: EventHubsOffset =
     EventHubsOffset(-1L, ehNameAndPartitions.map((_, (-1L, -1L))).toMap)
@@ -174,14 +174,16 @@ private[spark] class EventHubsSource(
       // with one
       cleanupFiles(lastCommitedBatchId)
     } else {
+      println("first batch")
       firstBatch = false
     }
     val targetOffsets = RateControlUtils.clamp(committedOffsetsAndSeqNums.offsets,
       highestOffsetsOpt.get, parameters)
-    Some(EventHubsBatchRecord(committedOffsetsAndSeqNums.batchId + 1,
+    val a = Some(EventHubsBatchRecord(committedOffsetsAndSeqNums.batchId + 1,
       targetOffsets.map{case (ehNameAndPartition, seqNum) =>
         (ehNameAndPartition, math.min(seqNum,
           fetchedHighestOffsetsAndSeqNums.offsets(ehNameAndPartition)._2))}))
+    a
   }
 
   /**
@@ -299,8 +301,10 @@ private[spark] class EventHubsSource(
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
+      println("recover from failure?")
       recoverFromFailure(start, end)
     }
+    println("getBatch is called")
     val eventhubsRDD = buildEventHubsRDD({
       end match {
         case so: SerializedOffset =>

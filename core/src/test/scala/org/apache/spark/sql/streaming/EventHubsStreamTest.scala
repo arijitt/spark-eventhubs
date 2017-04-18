@@ -214,7 +214,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
     var currentStream: StreamExecution = null
     var lastStream: StreamExecution = null
     val awaiting = new mutable.HashMap[Int, Offset]() // source index -> offset to wait for
-    val sink = new MemorySink(stream.schema, outputMode)
+    var sink = new MemorySink(stream.schema, outputMode)
     val resetConfValues = mutable.Map[String, Option[String]]()
 
     @volatile
@@ -325,15 +325,22 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             val createQueryMethod = sparkSession.streams.getClass.getDeclaredMethods.filter(m =>
               m.getName == "createQuery").head
             createQueryMethod.setAccessible(true)
+            val checkpointLocation = additionalConfs.getOrElse[String](
+              "eventhubs.test.checkpointLocation",
+              metadataRoot)
+            if (additionalConfs.contains("eventhubs.test.newSink") &&
+              additionalConfs("eventhubs.test.newSink").toBoolean) {
+              sink = new MemorySink(stream.schema, outputMode)
+            }
             currentStream = createQueryMethod.invoke(
               sparkSession.streams,
               None,
-              Some(metadataRoot),
+              Some(checkpointLocation),
               stream,
               sink,
               outputMode,
-              Boolean.box(false),
-              Boolean.box(true),
+              Boolean.box(false), // useTempCheckpointLocation
+              Boolean.box(true), // recoverFromCheckpointLocation
               trigger,
               triggerClock).asInstanceOf[StreamExecution]
 
@@ -358,7 +365,6 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                 "logical plan as there" +
                 "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
             }
-
             val eventHubsSource = sources.head
             val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null)
 
@@ -375,6 +381,8 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                   streamDeathCause = e
                 }
               })
+            println(s"checkpoint dir: stream ${currentStream.id}" +
+              s" ${currentStream.offsetLog.metadataPath}")
 
             currentStream.start()
 
@@ -396,6 +404,13 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             verify(clock.getTimeMillis() === manualClockExpectedTime,
               s"Unexpected clock time after updating: " +
                 s"expecting $manualClockExpectedTime, current ${clock.getTimeMillis()}")
+
+            val sources = currentStream.logicalPlan.collect {
+              case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
+                source.asInstanceOf[EventHubsSource]
+            }.head
+
+            println(s"currentStream State: ${sources.firstBatch}")
 
           case StopStream =>
             verify(currentStream != null, "can not stop a stream that is not running")
