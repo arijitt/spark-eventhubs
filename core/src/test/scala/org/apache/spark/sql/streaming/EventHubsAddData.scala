@@ -55,7 +55,8 @@ trait EventHubsAddData extends StreamAction with Serializable {
 
 case class AddEventHubsData[T: ClassTag, U: ClassTag](
      eventHubsParameters: Map[String, String],
-     eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])])
+     eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])],
+     highestBatchId: Long)
   extends EventHubsAddData {
 
   override def addData(query: Option[StreamExecution]): (Source, Offset) = {
@@ -81,10 +82,13 @@ case class AddEventHubsData[T: ClassTag, U: ClassTag](
     val highestOffsetPerPartition = EventHubsTestUtilities.getHighestOffsetPerPartition(eventHubs)
 
     // Determine the highest event hubs batch record
+    /*
     val highestSequenceNumber: Long = highestOffsetPerPartition.map(x => x._2._2).max
     val ratePerBatch: Long = eventHubsParameters.getOrElse("eventhubs.maxRate", "10000").toLong
+
     val highestBatchId: Long = if (highestSequenceNumber < ratePerBatch) 0
       else math.ceil((highestSequenceNumber + 1)/ratePerBatch).toLong
+    */
 
     val targetOffsetPerPartition = highestOffsetPerPartition.map(x => x._1 -> x._2._2)
     val eventHubsBatchRecord = EventHubsBatchRecord(highestBatchId, targetOffsetPerPartition)
