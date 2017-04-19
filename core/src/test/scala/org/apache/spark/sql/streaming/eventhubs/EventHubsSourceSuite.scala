@@ -750,8 +750,8 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
-  test("Verify expected dataframe can be retrieved with" +
-    " data added to source after the stream has started") {
+  test("Verify expected dataframe can be retrieved with data added to source after the" +
+    " stream has started") {
 
     import testImplicits._
 
@@ -873,8 +873,8 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
-  testWithUninterruptibleThread("Verify expected dataframe can be retrieved from different " +
-    "sources with same event hubs on different streams on different queries at different rates") {
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved from different" +
+    " sources with same event hubs on different streams on different queries at different rates") {
 
     import testImplicits._
 
@@ -946,8 +946,8 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
-  test("Verify expected dataframe is retrieved from starting offset" +
-    " on different streams on the same query") {
+  test("Verify expected dataframe is retrieved from starting offset on different streams on" +
+    " the same query using different checkpoint directory and sink") {
 
     import testImplicits._
 
@@ -1013,6 +1013,83 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
         additionalConfs = Map("eventhubs.test.checkpointLocation" ->
           s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}",
         "eventhubs.test.newSink" -> "true")),
+      AddEventHubsData(eventHubsParameters),
+      CheckAnswer(3, 7, 11, 5, 9, 13),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,
+        eventPayloadsAndProperties2),
+      AdvanceManualClock(10),
+      AdvanceManualClock(10),
+      CheckAnswer(3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8, 12, 14, 18,
+        22, 16, 20, 24)
+    )
+  }
+
+  test("Verify expected dataframe is retrieved from starting offset on different streams on" +
+    " the same query using same checkpoint directory and sink") {
+
+    import testImplicits._
+
+    val eventHubsParameters = Map[String, String](
+      "eventhubs.policyname" -> "policyName",
+      "eventhubs.policykey" -> "policyKey",
+      "eventhubs.namespace" -> "ns1",
+      "eventhubs.name" -> "eh1",
+      "eventhubs.partition.count" -> "2",
+      "eventhubs.consumergroup" -> "$Default",
+      "eventhubs.progressTrackingDir" -> "/tmp",
+      "eventhubs.maxRate" -> "3"
+    )
+
+    val eventPayloadsAndProperties1 = Seq(
+      2 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      4 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      6 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      8 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      10 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      12 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    val eventPayloadsAndProperties2 = Seq(
+      1 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      3 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      11 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      13 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      15 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      17 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      19 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      21 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      23 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+    )
+
+    EventHubsTestUtilities.simulateEventHubs(eventHubsParameters)
+
+    val dataSource = spark
+      .readStream
+      .format("eventhubs")
+      .options(eventHubsParameters)
+      .load()
+      .selectExpr("CAST(body AS STRING)")
+      .as[(String)]
+
+    val sourceQuery = dataSource.map(x => x.toInt + 1)
+
+    val manualClock = new StreamManualClock
+    val highestBatchId = new AtomicInteger(0)
+
+    testStream(sourceQuery)(
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
+      CheckAnswer(),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,
+        eventPayloadsAndProperties1),
+      AdvanceManualClock(10),
+      CheckAnswer(3, 7, 11, 5, 9, 13)
+    )
+
+    testStream(sourceQuery) (
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13),
       AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,

@@ -58,7 +58,7 @@ object EventHubsTestUtilities extends Logging {
   }
 
   def getOrSimulateEventHubs[T, U](
-      eventHubsParameters: Map[String, String],
+      eventHubsParameters: Map[String, String] = Map[String, String](),
       eventPayloadsAndProperties: Seq[(T, Seq[U])] = Seq.empty[(T, Seq[U])]): SimulatedEventHubs = {
     if (simulatedEventHubs == null) {
       simulatedEventHubs = simulateEventHubs(eventHubsParameters, eventPayloadsAndProperties)

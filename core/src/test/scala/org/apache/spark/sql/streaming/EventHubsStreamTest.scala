@@ -332,6 +332,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
               additionalConfs("eventhubs.test.newSink").toBoolean) {
               sink = new MemorySink(stream.schema, outputMode)
             }
+
             currentStream = createQueryMethod.invoke(
               sparkSession.streams,
               None,
@@ -362,11 +363,11 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                 " logical plan to add data to")
             } else if (sources.size > 1) {
               throw new Exception("Could not select the EventHubs source in the StreamExecution " +
-                "logical plan as there" +
-                "are multiple EventHubs sources:\n\t" + sources.mkString("\n\t"))
+                "logical plan as there are multiple EventHubs sources:\n\t"
+                + sources.mkString("\n\t"))
             }
             val eventHubsSource = sources.head
-            val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs(null)
+            val eventHubs = EventHubsTestUtilities.getOrSimulateEventHubs()
 
             eventHubsSource.setEventHubClient(new SimulatedEventHubsRestClient(eventHubs))
             eventHubsSource.setEventHubsReceiver(
@@ -374,7 +375,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                startOffset: Long, _: Int) => new TestEventHubsReceiver(eventHubsParameters,
                 eventHubs, partitionId, startOffset)
             )
-
+            
             currentStream.microBatchThread.setUncaughtExceptionHandler(
               new UncaughtExceptionHandler {
                 override def uncaughtException(t: Thread, e: Throwable): Unit = {
@@ -404,11 +405,6 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
             verify(clock.getTimeMillis() === manualClockExpectedTime,
               s"Unexpected clock time after updating: " +
                 s"expecting $manualClockExpectedTime, current ${clock.getTimeMillis()}")
-
-            val sources = currentStream.logicalPlan.collect {
-              case StreamingExecutionRelation(source, _) if source.isInstanceOf[EventHubsSource] =>
-                source.asInstanceOf[EventHubsSource]
-            }.head
 
           case StopStream =>
             verify(currentStream != null, "can not stop a stream that is not running")
