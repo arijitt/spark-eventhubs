@@ -410,8 +410,6 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                 source.asInstanceOf[EventHubsSource]
             }.head
 
-            println(s"currentStream State: ${sources.firstBatch}")
-
           case StopStream =>
             verify(currentStream != null, "can not stop a stream that is not running")
             try failAfter(streamingTimeout) {

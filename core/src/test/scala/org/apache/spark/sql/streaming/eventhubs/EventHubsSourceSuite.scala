@@ -20,8 +20,6 @@ package org.apache.spark.sql.streaming.eventhubs
 import java.util.Calendar
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.concurrent.Eventually._
-import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.time.SpanSugar._
 
 import org.apache.spark.eventhubscommon.utils._
@@ -30,7 +28,6 @@ import org.apache.spark.util.Utils
 
 class EventHubsSourceSuite extends EventHubsStreamTest {
 
-  /*
   test("Verify expected offsets are correct when rate" +
     " is less than the available data") {
 
@@ -307,7 +304,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     // Second batch
     offset = eventHubsSource.getOffset.get.asInstanceOf[EventHubsBatchRecord]
     dataFrame = eventHubsSource.getBatch(None, offset)
-    // dataFrame.show(100)
+
     assert(dataFrame.schema == eventHubsSource.schema)
     eventHubsSource.commit(offset)
     assert(dataFrame.select("body").count == 4)
@@ -521,7 +518,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     assert(outputArray.sorted.corresponds(inputArray.sorted) {_ == _})
   }
 
-  test("Verify input row metric is correct when source" +
+  testWithUninterruptibleThread("Verify input row metric is correct when source" +
     " is started with initial data") {
 
     import testImplicits._
@@ -571,8 +568,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     )
   }
 
-  test("Verify expected dataframe can be retrieved" +
-    " after data addition to source") {
+  test("Verify expected dataframe can be retrieved after data addition to source") {
 
     import testImplicits._
 
@@ -610,9 +606,14 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
+    val manualClock = new StreamManualClock
+    val highestBatchId = 1
+
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0)),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
+      CheckAnswer(),
+      AddEventHubsData(eventHubsParameters, highestBatchId, eventPayloadsAndProperties),
+      AdvanceManualClock(10),
       CheckAnswer(2, 4, 6, 1, 10, 8)
     )
   }
@@ -645,7 +646,9 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       5 -> Seq("creationTime" -> Calendar.getInstance().getTime),
       7 -> Seq("creationTime" -> Calendar.getInstance().getTime),
       9 -> Seq("creationTime" -> Calendar.getInstance().getTime),
-      11 -> Seq("creationTime" -> Calendar.getInstance().getTime)
+      11 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      13 -> Seq("creationTime" -> Calendar.getInstance().getTime),
+      15 -> Seq("creationTime" -> Calendar.getInstance().getTime)
     )
 
     EventHubsTestUtilities.simulateEventHubs(eventHubsParameters)
@@ -660,10 +663,17 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
+    val manualClock = new StreamManualClock
+    val highestBatchId = 3
+
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(0)),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties),
-      CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12)
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
+      CheckAnswer(),
+      AddEventHubsData(eventHubsParameters, highestBatchId, eventPayloadsAndProperties),
+      AdvanceManualClock(10),
+      AdvanceManualClock(10),
+      AdvanceManualClock(10),
+      CheckAnswer(3, 7, 11, 2, 6, 10, 14, 5, 9, 13, 4, 8, 12, 16)
     )
   }
 
@@ -722,13 +732,20 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
+    val manualClock = new StreamManualClock
+    val highestBatchId = new AtomicInteger(0)
+
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(10.seconds)),
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet.toLong,
+        eventPayloadsAndProperties2),
+      AdvanceManualClock(10),
       CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties3),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet.toLong,
+        eventPayloadsAndProperties3),
+      AdvanceManualClock(10),
       CheckAnswer(3, 7, 11, 2, 6, 10, 2, 6, 10, 5, 9, 13, 4, 8, 12, 4, 8, 12)
     )
   }
@@ -779,16 +796,25 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
 
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
+    val manualClock = new StreamManualClock
+    val highestBatchId = new AtomicInteger(0)
+
     testStream(sourceQuery)(
-      StartStream(trigger = ProcessingTime(10.seconds)),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties1),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2),
+      StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
+      CheckAnswer(),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,
+        eventPayloadsAndProperties1),
+      AdvanceManualClock(10),
+      CheckAnswer(3, 7, 11, 5, 9, 13),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,
+        eventPayloadsAndProperties2),
+      AdvanceManualClock(10),
       CheckAnswer(3, 7, 11, 2, 6, 10, 5, 9, 13, 4, 8, 12)
     )
   }
 
-  test("Verify expected dataframe can be retrieved from different sources with same event hubs" +
-    " on different streams on different queries at same rate") {
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved from different" +
+    " sources with same event hubs on different streams on different queries at same rate") {
 
     import testImplicits._
 
@@ -835,20 +861,20 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery2 = dataSource2.map(x => x.toInt + 1)
 
     testStream(sourceQuery1)(
-      StartStream(trigger = ProcessingTime(10.seconds)),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
 
     testStream(sourceQuery2)(
-      StartStream(trigger = ProcessingTime(10.seconds)),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
   }
 
-  test("Verify expected dataframe can be retrieved from different sources with same event hubs" +
-    " on different streams on different queries at different rates") {
+  testWithUninterruptibleThread("Verify expected dataframe can be retrieved from different " +
+    "sources with same event hubs on different streams on different queries at different rates") {
 
     import testImplicits._
 
@@ -906,18 +932,19 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery2 = dataSource2.map(x => x.toInt + 1)
 
     testStream(sourceQuery1)(
-      StartStream(trigger = ProcessingTime(10.seconds)),
+      StartStream(trigger = ProcessingTime(0)),
       AddEventHubsData(eventHubsParameters1),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
 
+    val highestBatchId = 1
+
     testStream(sourceQuery2)(
-      StartStream(trigger = ProcessingTime(10.seconds)),
-      AddEventHubsData(eventHubsParameters2),
+      StartStream(trigger = ProcessingTime(0)),
+      AddEventHubsData(eventHubsParameters2, highestBatchId),
       CheckAnswer(3, 7, 11, 5, 9, 13)
     )
   }
-  */
 
   test("Verify expected dataframe is retrieved from starting offset" +
     " on different streams on the same query") {
@@ -972,14 +999,13 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
     val sourceQuery = dataSource.map(x => x.toInt + 1)
 
     val manualClock = new StreamManualClock
-
     val highestBatchId = new AtomicInteger(0)
 
     testStream(sourceQuery)(
       StartStream(trigger = ProcessingTime(10), triggerClock = manualClock),
       CheckAnswer(),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties1,
-        highestBatchId.incrementAndGet().toLong),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,
+        eventPayloadsAndProperties1),
       AdvanceManualClock(10),
       CheckAnswer(3, 7, 11, 5, 9, 13),
       StopStream,
@@ -987,10 +1013,11 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
         additionalConfs = Map("eventhubs.test.checkpointLocation" ->
           s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}",
         "eventhubs.test.newSink" -> "true")),
-      // YOU NEED TO ADD A SPECIAL COMMAND HERE TO MODIFY YOUR EXPECTATION to (batchID = 0, 2, 2)
+      AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13),
-      AddEventHubsData(eventHubsParameters, eventPayloadsAndProperties2,
-        highestBatchId.getAndIncrement().toLong),
+      AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,
+        eventPayloadsAndProperties2),
+      AdvanceManualClock(10),
       AdvanceManualClock(10),
       CheckAnswer(3, 7, 11, 5, 9, 13, 2, 6, 10, 4, 8, 12, 14, 18,
         22, 16, 20, 24)

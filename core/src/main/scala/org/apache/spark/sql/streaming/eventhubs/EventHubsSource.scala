@@ -174,7 +174,6 @@ private[spark] class EventHubsSource(
       // with one
       cleanupFiles(lastCommitedBatchId)
     } else {
-      println("first batch")
       firstBatch = false
     }
     val targetOffsets = RateControlUtils.clamp(committedOffsetsAndSeqNums.offsets,
@@ -301,10 +300,8 @@ private[spark] class EventHubsSource(
       // in this case, we are just recovering from a failure; the committedOffsets and
       // availableOffsets are fetched from in populateStartOffset() of StreamExecution
       // convert (committedOffsetsAndSeqNums is in initial state)
-      println("recover from failure?")
       recoverFromFailure(start, end)
     }
-    println("getBatch is called")
     val eventhubsRDD = buildEventHubsRDD({
       end match {
         case so: SerializedOffset =>
