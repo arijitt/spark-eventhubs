@@ -375,7 +375,7 @@ trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
                startOffset: Long, _: Int) => new TestEventHubsReceiver(eventHubsParameters,
                 eventHubs, partitionId, startOffset)
             )
-            
+
             currentStream.microBatchThread.setUncaughtExceptionHandler(
               new UncaughtExceptionHandler {
                 override def uncaughtException(t: Thread, e: Throwable): Unit = {
