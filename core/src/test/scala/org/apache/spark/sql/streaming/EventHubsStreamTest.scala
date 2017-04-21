@@ -35,8 +35,8 @@ import org.scalatest.exceptions.TestFailedDueToTimeoutException
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.apache.spark.eventhubscommon.utils._
+import org.apache.spark.sql.catalyst.encoders.{encoderFor, ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.{Dataset, Encoder, QueryTest, Row}
-import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder, encoderFor}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
 import org.apache.spark.sql.execution.streaming._
