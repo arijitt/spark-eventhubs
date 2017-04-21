@@ -19,7 +19,6 @@ package org.apache.spark.sql.streaming
 
 import java.lang.Thread.UncaughtExceptionHandler
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -27,6 +26,7 @@ import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.util.Random
 import scala.util.control.NonFatal
+
 import org.scalatest.{Assertions, BeforeAndAfter}
 import org.scalatest.concurrent.{Eventually, Timeouts}
 import org.scalatest.concurrent.Eventually._
@@ -34,50 +34,48 @@ import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.exceptions.TestFailedDueToTimeoutException
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
+
 import org.apache.spark.eventhubscommon.utils._
 import org.apache.spark.sql.catalyst.encoders.{encoderFor, ExpressionEncoder, RowEncoder}
-import org.apache.spark.sql.{Dataset, Encoder, QueryTest, Row}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
+import org.apache.spark.sql.{Dataset, Encoder, QueryTest, Row}
 import org.apache.spark.sql.execution.streaming._
-import org.apache.spark.sql.streaming.eventhubs.{EventHubsAddData, EventHubsBatchRecord, EventHubsSource, StreamAction}
+import org.apache.spark.sql.streaming.eventhubs._
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.{Clock, ManualClock, SystemClock, Utils}
 
 /**
- * A framework for implementing tests for streaming queries and sources.
- *
- * A test consists of a set of steps (expressed as a `StreamAction`) that are executed in order,
- * blocking as necessary to let the stream catch up.  For example, the following adds some data to
- * a stream, blocking until it can verify that the correct values are eventually produced.
- *
- * {{{
- *  val inputData = MemoryStream[Int]
- *  val mapped = inputData.toDS().map(_ + 1)
- *
- *  testStream(mapped)(
- *    AddData(inputData, 1, 2, 3),
- *    CheckAnswer(2, 3, 4))
- * }}}
- *
- * Note that while we do sleep to allow the other thread to progress without spinning,
- * `StreamAction` checks should not depend on the amount of time spent sleeping.  Instead they
- * should check the actual progress of the stream before verifying the required test condition.
- *
- * Currently it is assumed that all streaming queries will eventually complete in 10 seconds to
- * avoid hanging forever in the case of failures. However, individual suites can change this
- * by overriding `streamingTimeout`.
- */
+  * A framework for implementing tests for streaming queries and sources.
+  *
+  * A test consists of a set of steps (expressed as a `StreamAction`) that are executed in order,
+  * blocking as necessary to let the stream catch up.  For example, the following adds some data to
+  * a stream, blocking until it can verify that the correct values are eventually produced.
+  *
+  * {{{
+  *  val inputData = MemoryStream[Int]
+  *  val mapped = inputData.toDS().map(_ + 1)
+  *
+  *  testStream(mapped)(
+  *    AddData(inputData, 1, 2, 3),
+  *    CheckAnswer(2, 3, 4))
+  * }}}
+  *
+  * Note that while we do sleep to allow the other thread to progress without spinning,
+  * `StreamAction` checks should not depend on the amount of time spent sleeping.  Instead they
+  * should check the actual progress of the stream before verifying the required test condition.
+  *
+  * Currently it is assumed that all streaming queries will eventually complete in 10 seconds to
+  * avoid hanging forever in the case of failures. However, individual suites can change this
+  * by overriding `streamingTimeout`.
+  */
 
 trait EventHubsStreamTest extends QueryTest with BeforeAndAfter
   with SharedSQLContext with Timeouts with Serializable {
 
   /** How long to wait for an active stream to catch up when checking a result. */
-  val streamingTimeout = 60.seconds
+  val streamingTimeout: Span = 60.seconds
 
-
-  /** A trait for actions that can be performed while testing a streaming DataFrame. */
-  // trait StreamAction
 
   /** A trait to mark actions that require the stream to be actively running. */
   trait StreamMustBeRunning

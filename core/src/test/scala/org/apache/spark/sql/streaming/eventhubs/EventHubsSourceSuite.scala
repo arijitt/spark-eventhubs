@@ -1012,7 +1012,7 @@ class EventHubsSourceSuite extends EventHubsStreamTest {
       StartStream(trigger = ProcessingTime(10), triggerClock = manualClock,
         additionalConfs = Map("eventhubs.test.checkpointLocation" ->
           s"${Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath}",
-        "eventhubs.test.newSink" -> "true")),
+          "eventhubs.test.newSink" -> "true")),
       AddEventHubsData(eventHubsParameters),
       CheckAnswer(3, 7, 11, 5, 9, 13),
       AddEventHubsData(eventHubsParameters, highestBatchId.incrementAndGet().toLong,

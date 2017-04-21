@@ -17,10 +17,7 @@
 
 package org.apache.spark.eventhubscommon.utils
 
-import java.time.Instant
 import java.util.Calendar
-
-import scala.reflect.ClassTag
 
 import com.microsoft.azure.eventhubs.EventData
 import com.microsoft.azure.eventhubs.EventData.SystemProperties
